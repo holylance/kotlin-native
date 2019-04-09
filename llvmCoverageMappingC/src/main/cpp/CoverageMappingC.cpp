@@ -228,3 +228,11 @@ LLVMTargetLibraryInfoRef LLVMGetTargetLibraryInfo(LLVMModuleRef moduleRef) {
     auto* libraryInfo = new TargetLibraryInfoImpl(Triple(unwrap(moduleRef)->getTargetTriple()));
     return llvm::wrap(libraryInfo);
 }
+
+void LLVMKotlinInitialize() {
+    LLVMInitializeAllTargetInfos();
+    LLVMInitializeAllTargets();
+    LLVMInitializeAllTargetMCs();
+    LLVMInitializeAllAsmPrinters();
+    LLVMInitializeAllAsmParsers();
+}

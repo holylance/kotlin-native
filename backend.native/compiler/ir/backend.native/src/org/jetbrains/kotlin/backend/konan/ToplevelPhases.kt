@@ -3,7 +3,6 @@ package org.jetbrains.kotlin.backend.konan
 import org.jetbrains.kotlin.backend.common.LoggingContext
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.phaser.*
-import org.jetbrains.kotlin.backend.common.serialization.DeserializationStrategy
 import org.jetbrains.kotlin.backend.konan.descriptors.isForwardDeclarationModule
 import org.jetbrains.kotlin.backend.konan.descriptors.konanLibrary
 import org.jetbrains.kotlin.backend.konan.ir.KonanSymbols
@@ -185,20 +184,14 @@ internal val serializerPhase = konanUnitPhase(
         description = "Serialize descriptor tree and inline IR bodies"
 )
 
-internal val setUpLinkStagePhase = konanUnitPhase(
-        op =  { linkStage = LinkStage(this) },
-        name = "SetUpLinkStage",
-        description = "Set up link stage"
-)
-
 internal val objectFilesPhase = konanUnitPhase(
-        op = { linkStage.makeObjectFiles() },
+        op = { compilerOutput = BitcodeCompiler(this).makeObjectFiles(bitcodeFileName) },
         name = "ObjectFiles",
         description = "Bitcode to object file"
 )
 
 internal val linkerPhase = konanUnitPhase(
-        op = { linkStage.linkStage() },
+        op = { Linker(this).link(compilerOutput) },
         name = "Linker",
         description = "Linker"
 )
@@ -206,8 +199,7 @@ internal val linkerPhase = konanUnitPhase(
 internal val linkPhase = namedUnitPhase(
         name = "Link",
         description = "Link stage",
-        lower = setUpLinkStagePhase then
-                objectFilesPhase then
+        lower = objectFilesPhase then
                 linkerPhase
 )
 
@@ -304,7 +296,6 @@ internal val bitcodePhase = namedIrModulePhase(
                 escapeAnalysisPhase then
                 codegenPhase then
                 finalizeDebugInfoPhase then
-                bitcodePassesPhase then
                 cStubsPhase
 )
 
