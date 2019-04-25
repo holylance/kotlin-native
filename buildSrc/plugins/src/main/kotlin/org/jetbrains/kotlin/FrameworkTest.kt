@@ -150,7 +150,7 @@ open class FrameworkTest : DefaultTask() {
 
         val sdk = when (val testTarget = project.testTarget()) {
             KonanTarget.IOS_X64 -> Xcode.current.iphonesimulatorSdk
-            KonanTarget.IOS_ARM64 -> Xcode.current.iphoneosSdk
+            KonanTarget.IOS_ARM64, KonanTarget.IOS_ARM32 -> Xcode.current.iphoneosSdk
             KonanTarget.MACOS_X64 -> Xcode.current.macosxSdk
             else -> error("Cannot validate bitcode for test target $testTarget")
         }
