@@ -118,6 +118,14 @@ internal fun produceOutput(context: Context) {
     }
 }
 
+private fun parseAndLinkBitcodeFile(llvmModule: LLVMModuleRef, path: String) {
+    val parsedModule = parseBitcodeFile(path)
+    val failed = LLVMLinkModules2(llvmModule, parsedModule)
+    if (failed != 0) {
+        throw Error("failed to link $path") // TODO: retrieve error message from LLVM.
+    }
+}
+
 private fun embedAppleLinkerOptionsToBitcode(llvm: Llvm, config: KonanConfig) {
     fun findEmbeddableOptions(options: List<String>): List<List<String>> {
         val result = mutableListOf<List<String>>()
@@ -137,12 +145,4 @@ private fun embedAppleLinkerOptionsToBitcode(llvm: Llvm, config: KonanConfig) {
             llvm.nativeDependenciesToLink.flatMap { findEmbeddableOptions(it.linkerOpts) }
 
     embedLlvmLinkOptions(llvm.llvmModule, optionsToEmbed)
-}
-
-private fun parseAndLinkBitcodeFile(llvmModule: LLVMModuleRef, path: String) {
-    val parsedModule = parseBitcodeFile(path)
-    val failed = LLVMLinkModules2(llvmModule, parsedModule)
-    if (failed != 0) {
-        throw Error("failed to link $path") // TODO: retrieve error message from LLVM.
-    }
 }

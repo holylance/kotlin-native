@@ -58,7 +58,7 @@ private class LlvmPipelineConfiguration(context: Context) {
 
     val cpuFeatures: String = ""
 
-    val inlineThreshold: Int? = when {
+    val customInlineThreshold: Int? = when {
         context.shouldOptimize() -> 100
         context.shouldContainDebugInfo() -> null
         else -> null
@@ -120,7 +120,7 @@ internal fun runLlvmOptimizationPipeline(context: Context) {
         LLVMAddInternalizePass(modulePasses, 0)
         LLVMAddGlobalDCEPass(modulePasses)
 
-        config.inlineThreshold?.let { threshold ->
+        config.customInlineThreshold?.let { threshold ->
             LLVMPassManagerBuilderUseInlinerWithThreshold(passBuilder, threshold)
         }
         // Pipeline that is similar to `llvm-lto`.
