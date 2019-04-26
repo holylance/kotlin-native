@@ -7,10 +7,7 @@ import kotlinx.cinterop.value
 import llvm.*
 import org.jetbrains.kotlin.konan.target.KonanTarget
 
-// Initialize all required LLVM machinery, ex. target registry.
-private fun initializeLlvm() {
-    LLVMKotlinInitialize()
-
+private fun initializeLlvmGlobalPassRegistry() {
     val passRegistry = LLVMGetGlobalPassRegistry()
 
     LLVMInitializeCore(passRegistry)
@@ -87,12 +84,26 @@ private class LlvmPipelineConfiguration(context: Context) {
     val codeModel: LLVMCodeModel = LLVMCodeModel.LLVMCodeModelDefault
 }
 
+// Since we are in a "closed world" internalization and global dce
+// can be safely used to reduce size of a bitcode.
+internal fun runClosedWorldCleanup(context: Context) {
+    initializeLlvmGlobalPassRegistry()
+    val llvmModule = context.llvmModule!!
+    val modulePasses = LLVMCreatePassManager()
+    LLVMAddInternalizePass(modulePasses, 0)
+    LLVMAddGlobalDCEPass(modulePasses)
+    LLVMRunPassManager(modulePasses, llvmModule)
+    LLVMDisposePassManager(modulePasses)
+}
+
 internal fun runLlvmOptimizationPipeline(context: Context) {
     val llvmModule = context.llvmModule!!
     val config = LlvmPipelineConfiguration(context)
 
     memScoped {
-        initializeLlvm()
+        LLVMKotlinInitializeTargets()
+
+        initializeLlvmGlobalPassRegistry()
         val passBuilder = LLVMPassManagerBuilderCreate()
         val modulePasses = LLVMCreatePassManager()
         LLVMPassManagerBuilderSetOptLevel(passBuilder, config.optimizationLevel)

@@ -77,6 +77,8 @@ internal fun produceOutput(context: Context) {
             }
             if (shouldUseLlvmApi(context)) {
                 runLlvmOptimizationPipeline(context)
+            } else {
+                runClosedWorldCleanup(context)
             }
             LLVMWriteBitcodeToFile(context.llvmModule!!, output)
         }
@@ -91,7 +93,6 @@ internal fun produceOutput(context: Context) {
             val target = context.config.target
             val nopack = config.getBoolean(KonanConfigKeys.NOPACK)
             val manifestProperties = context.config.manifestProperties
-
 
             val library = buildLibrary(
                 context.config.nativeLibraries,

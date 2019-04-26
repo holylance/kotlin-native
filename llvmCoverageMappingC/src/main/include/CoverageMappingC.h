@@ -74,7 +74,7 @@ void LLVMAddInstrProfPass(LLVMPassManagerRef passManagerRef, const char* outputF
 
 LLVMTargetLibraryInfoRef LLVMGetTargetLibraryInfo(LLVMModuleRef moduleRef);
 
-void LLVMKotlinInitialize();
+void LLVMKotlinInitializeTargets();
 
 # ifdef __cplusplus
 }

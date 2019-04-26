@@ -38,6 +38,7 @@ model {
           if (!project.parent.convention.plugins.platformInfo.isWindows())
              cppCompiler.args "-fPIC"
           cppCompiler.args "--std=c++11", "-I${llvmDir}/include", "-I${projectDir}/src/main/include"
+
           linker.args "-L${llvmDir}/lib", "-lLLVMCore", "-lLLVMSupport"
         }
         binaries.withType(SharedLibraryBinarySpec) { binary ->
