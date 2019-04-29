@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.backend.common.descriptors.WrappedTypeParameterDescr
 import org.jetbrains.kotlin.backend.common.validateIrModule
 import org.jetbrains.kotlin.backend.konan.descriptors.*
 import org.jetbrains.kotlin.backend.konan.ir.KonanIr
-import org.jetbrains.kotlin.backend.konan.library.KonanLibraryWriter
 import org.jetbrains.kotlin.backend.konan.library.LinkData
 import org.jetbrains.kotlin.backend.konan.llvm.*
 import org.jetbrains.kotlin.backend.konan.lower.DECLARATION_ORIGIN_BRIDGE_METHOD
@@ -322,7 +321,6 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
     val llvmImports: LlvmImports = Llvm.ImportsImpl(this)
     lateinit var llvmDeclarations: LlvmDeclarations
     lateinit var bitcodeFileName: String
-    lateinit var library: KonanLibraryWriter
 
     val cStubsManager = CStubsManager(config.target)
 

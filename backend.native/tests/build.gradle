@@ -3355,7 +3355,7 @@ if (isAppleTarget(project)) {
 
     task testStdlibFramework(type: FrameworkTest) {
         frameworkName = 'Stdlib'
-        fullBitcode = false
+        fullBitcode = true
         konanArtifacts {
             framework(frameworkName, targets: [ target ]) {
                 srcDir 'framework/stdlib'

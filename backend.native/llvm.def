@@ -13,7 +13,6 @@ compilerOpts = -std=c99 \
 
 linker = clang++
 
-# TODO: Reduce number of used llvm libs.
 linkerOpts = -fvisibility-inlines-hidden \
     -Wall -W -Wno-unused-parameter -Wwrite-strings -Wcast-qual -Wmissing-field-initializers \
     -pedantic -Wno-long-long -Wcovered-switch-default -Wnon-virtual-dtor -Wdelete-non-virtual-dtor \

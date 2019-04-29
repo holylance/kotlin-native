@@ -144,11 +144,12 @@ open class FrameworkTest : DefaultTask() {
         if (!fullBitcode) {
             return
         }
-        // TODO: better way to detect utility?
-        val bitcodeBuildTool = "/Applications/Xcode.app/Contents/Developer/usr/bin/bitcode-build-tool"
-        val ldPath = "${Xcode.current.toolchain}/usr/bin/ld"
+        val testTarget = project.testTarget()
+        val configurables = project.platformManager().platform(testTarget).configurables as AppleConfigurables
 
-        val sdk = when (val testTarget = project.testTarget()) {
+        val bitcodeBuildTool = "${configurables.absoluteTestingUtilitiesDir}/bin/bitcode-build-tool"
+        val ldPath = "${configurables.absoluteTargetToolchain}/usr/bin/ld"
+        val sdk = when (testTarget) {
             KonanTarget.IOS_X64 -> Xcode.current.iphonesimulatorSdk
             KonanTarget.IOS_ARM64, KonanTarget.IOS_ARM32 -> Xcode.current.iphoneosSdk
             KonanTarget.MACOS_X64 -> Xcode.current.macosxSdk

@@ -87,10 +87,6 @@ private class LlvmPipelineConfiguration(context: Context) {
 // Since we are in a "closed world" internalization and global dce
 // can be safely used to reduce size of a bitcode.
 internal fun runClosedWorldCleanup(context: Context) {
-    // GlobalDCE will kill coverage-related globals.
-    if (context.coverage.enabled) {
-        return
-    }
     initializeLlvmGlobalPassRegistry()
     val llvmModule = context.llvmModule!!
     val modulePasses = LLVMCreatePassManager()
