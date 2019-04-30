@@ -156,7 +156,7 @@ open class FrameworkTest : DefaultTask() {
             else -> error("Cannot validate bitcode for test target $testTarget")
         }
 
-        val args = listOf("--verify", "--sdk", sdk, "-v", "-t", ldPath, frameworkBinary)
+        val args = listOf("--sdk", sdk, "-v", "-t", ldPath, frameworkBinary)
         val (stdOut, stdErr, exitCode) = runProcess(executor = localExecutor(project), executable = bitcodeBuildTool, args = args)
         check(exitCode == 0) {
             """
