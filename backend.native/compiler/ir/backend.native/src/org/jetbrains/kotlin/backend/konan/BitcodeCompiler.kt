@@ -56,8 +56,7 @@ internal class BitcodeCompiler(val context: Context) {
         runTool(absoluteToolName, *arg)
     }
 
-    private fun llvmLto(files: List<BitcodeFile>): ObjectFile {
-        val configurables = platform.configurables as LlvmLtoFlags
+    private fun llvmLto(configurables: LlvmLtoFlags, file: BitcodeFile): ObjectFile {
         val combined = temporary("combined", ".o")
         val arguments = mutableListOf<String>().apply {
             addNonEmpty(configurables.llvmLtoFlags)
@@ -68,7 +67,7 @@ internal class BitcodeCompiler(val context: Context) {
                 else -> addNonEmpty(configurables.llvmLtoNooptFlags)
             }
             addNonEmpty(configurables.llvmLtoDynamicFlags)
-            addNonEmpty(files)
+            add(file)
             // Prevent symbols from being deleted by DCE.
             addNonEmpty(exportedSymbols.map { "-exported-symbol=${mangleSymbol(target, it)}"} )
         }
@@ -113,25 +112,21 @@ internal class BitcodeCompiler(val context: Context) {
         return combinedO
     }
 
-    private fun bitcodeToWasm(bitcodeFiles: List<BitcodeFile>): String {
-        val combinedBc = llvmLink(bitcodeFiles)
-        val optimizedBc = opt(combinedBc)
+    private fun bitcodeToWasm(configurables: WasmConfigurables, file: BitcodeFile): String {
+        val optimizedBc = opt(file)
         val compiled = llc(optimizedBc)
 
         // TODO: should be moved to linker.
-        val lldFlags = platform.configurables as LldFlags
         val linkedWasm = temporary("linked", ".wasm")
-        hostLlvmTool("wasm-ld", compiled, "-o", linkedWasm, *lldFlags.lldFlags.toTypedArray())
+        hostLlvmTool("wasm-ld", compiled, "-o", linkedWasm, *configurables.lldFlags.toTypedArray())
 
         return linkedWasm
     }
 
-    private fun llvmLinkAndLlc(bitcodeFiles: List<BitcodeFile>): String {
-        val combinedBc = llvmLink(bitcodeFiles)
-
+    private fun optAndLlc(configurables: ZephyrConfigurables, file: BitcodeFile): String {
         val optimizedBc = temporary("optimized", ".bc")
         val optFlags = llvmProfilingFlags() + listOf("-O3", "-internalize", "-globaldce")
-        hostLlvmTool("opt", combinedBc, "-o=$optimizedBc", *optFlags.toTypedArray())
+        hostLlvmTool("opt", file, "-o=$optimizedBc", *optFlags.toTypedArray())
 
         val combinedO = temporary("combined", ".o")
         val llcFlags = llvmProfilingFlags() + listOf("-function-sections", "-data-sections")
@@ -140,23 +135,22 @@ internal class BitcodeCompiler(val context: Context) {
         return combinedO
     }
 
-    private fun clang(file: BitcodeFile): ObjectFile {
-        val clangFlags = platform.configurables as ClangFlags
+    private fun clang(configurables: AppleConfigurables, file: BitcodeFile): ObjectFile {
         val objectFile = temporary("result", ".o")
 
         val profilingFlags = llvmProfilingFlags().map { listOf("-mllvm", it) }.flatten()
 
         val flags = mutableListOf<String>().apply {
-            addNonEmpty(clangFlags.clangFlags)
+            addNonEmpty(configurables.clangFlags)
             addNonEmpty(listOf("-triple", context.llvm.targetTriple))
             addNonEmpty(when {
-                optimize -> clangFlags.clangOptFlags
-                debug -> clangFlags.clangDebugFlags
-                else -> clangFlags.clangNooptFlags
+                optimize -> configurables.clangOptFlags
+                debug -> configurables.clangDebugFlags
+                else -> configurables.clangNooptFlags
             })
             addNonEmpty(BitcodeEmbedding.getClangOptions(context.config))
             if (determineLinkerOutput(context) == LinkerOutputKind.DYNAMIC_LIBRARY) {
-                addNonEmpty(clangFlags.clangDynamicFlags)
+                addNonEmpty(configurables.clangDynamicFlags)
             }
             addNonEmpty(profilingFlags)
         }
@@ -177,21 +171,17 @@ internal class BitcodeCompiler(val context: Context) {
         return flags
     }
 
-    fun makeObjectFiles(bitcodeFile: BitcodeFile): List<ObjectFile> {
-
-        val bitcodeFiles = listOf(bitcodeFile)
-
-        return listOf(when (platform.configurables) {
-            is AppleConfigurables ->
-                clang(bitcodeFile)
-            is WasmConfigurables ->
-                bitcodeToWasm(bitcodeFiles)
-            is ZephyrConfigurables ->
-                llvmLinkAndLlc(bitcodeFiles)
-            is LlvmLtoFlags ->
-                llvmLto(bitcodeFiles)
-            else ->
-                error("Unsupported configurables kind: ${platform.configurables::class.simpleName}!")
-        })
-    }
+    fun makeObjectFiles(bitcodeFile: BitcodeFile): List<ObjectFile> =
+            listOf(when (val configurables = platform.configurables) {
+                is AppleConfigurables ->
+                    clang(configurables, bitcodeFile)
+                is WasmConfigurables ->
+                    bitcodeToWasm(configurables, bitcodeFile)
+                is ZephyrConfigurables ->
+                    optAndLlc(configurables, bitcodeFile)
+                is LlvmLtoFlags ->
+                    llvmLto(configurables, bitcodeFile)
+                else ->
+                    error("Unsupported configurables kind: ${configurables::class.simpleName}!")
+            })
 }

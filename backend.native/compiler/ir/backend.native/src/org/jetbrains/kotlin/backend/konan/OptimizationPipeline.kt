@@ -110,9 +110,9 @@ internal fun runLlvmOptimizationPipeline(context: Context) {
         LLVMPassManagerBuilderSetSizeLevel(passBuilder, config.sizeLevel)
         // TODO: use LLVMGetTargetFromName instead.
         val target = alloc<LLVMTargetRefVar>()
-        if (LLVMGetTargetFromTriple(config.targetTriple, target.ptr, null) != 0) {
-            context.reportCompilationError("Cannot get target from triple ${config.targetTriple}.")
-        }
+        val foundLlvmTarget = LLVMGetTargetFromTriple(config.targetTriple, target.ptr, null) == 0
+        assert(foundLlvmTarget) { "Cannot get target from triple ${config.targetTriple}." }
+
         val targetMachine = LLVMCreateTargetMachine(
                 target.value,
                 config.targetTriple,
