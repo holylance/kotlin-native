@@ -147,7 +147,7 @@ open class FrameworkTest : DefaultTask() {
         val testTarget = project.testTarget()
         val configurables = project.platformManager().platform(testTarget).configurables as AppleConfigurables
 
-        val bitcodeBuildTool = "${configurables.absoluteTestingUtilitiesDir}/bin/bitcode-build-tool"
+        val bitcodeBuildTool = "${configurables.absoluteAdditionalToolsDir}/bin/bitcode-build-tool"
         val ldPath = "${configurables.absoluteTargetToolchain}/usr/bin/ld"
         val sdk = when (testTarget) {
             KonanTarget.IOS_X64 -> Xcode.current.iphonesimulatorSdk
