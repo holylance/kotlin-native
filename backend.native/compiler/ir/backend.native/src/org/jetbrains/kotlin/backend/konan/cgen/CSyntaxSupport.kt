@@ -32,6 +32,7 @@ internal object CTypes {
     val double = simple("double")
     val C99Bool = simple("_Bool")
     val char = simple("char")
+    val charPtr = pointer(char)
 
     val id = simple("id")
 }

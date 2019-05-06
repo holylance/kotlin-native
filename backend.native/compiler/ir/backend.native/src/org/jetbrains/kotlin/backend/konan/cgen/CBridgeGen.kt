@@ -4,10 +4,7 @@ import org.jetbrains.kotlin.backend.common.descriptors.WrappedClassConstructorDe
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedClassDescriptor
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedSimpleFunctionDescriptor
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedValueParameterDescriptor
-import org.jetbrains.kotlin.backend.common.ir.addFakeOverrides
-import org.jetbrains.kotlin.backend.common.ir.createDispatchReceiverParameter
-import org.jetbrains.kotlin.backend.common.ir.createParameterDeclarations
-import org.jetbrains.kotlin.backend.common.ir.simpleFunctions
+import org.jetbrains.kotlin.backend.common.ir.*
 import org.jetbrains.kotlin.backend.common.lower.at
 import org.jetbrains.kotlin.backend.common.lower.irNot
 import org.jetbrains.kotlin.backend.konan.PrimitiveBinaryType
@@ -40,6 +37,7 @@ import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.addChild
 import org.jetbrains.kotlin.konan.target.Family
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.name.FqName
@@ -377,7 +375,7 @@ private class CCallbackBuilder(
     val irBuiltIns: IrBuiltIns get() = stubs.irBuiltIns
     val symbols: KonanSymbols get() = stubs.symbols
 
-    private val cBridgeName = stubs.getUniqueCName("knbridge")
+    private val cBridgeName = stubs.getUniqueCName("kncbbridge")
 
     fun buildCBridgeCall(): String = cBridgeCallBuilder.build(cBridgeName)
     fun buildCBridge(): String = bridgeBuilder.buildCSignature(cBridgeName)
@@ -671,6 +669,9 @@ private sealed class TypeLocation(val element: IrElement) {
     class BlockReturnValue(val blockLocation: TypeLocation) : TypeLocation(blockLocation.element)
 }
 
+private val TypeLocation.shallUseCStrings: Boolean
+    get() = this is TypeLocation.FunctionArgument || this is TypeLocation.FunctionPointerParameter
+
 private fun KotlinStubs.mapReturnType(
         type: IrType,
         location: TypeLocation,
@@ -744,6 +745,7 @@ private fun KotlinStubs.mapType(
     type.isLong() -> TrivialValuePassing(irBuiltIns.longType, CTypes.longLong)
     type.isFloat() -> TrivialValuePassing(irBuiltIns.floatType, CTypes.float)
     type.isDouble() -> TrivialValuePassing(irBuiltIns.doubleType, CTypes.double)
+    type.isStringClassType() && typeLocation.shallUseCStrings -> CStringValuePassing(symbols)
     type.classifierOrNull == symbols.interopCPointer -> TrivialValuePassing(type, CTypes.voidPtr)
     type.isUByte() -> UnsignedValuePassing(type, CTypes.signedChar, CTypes.unsignedChar)
     type.isUShort() -> UnsignedValuePassing(type, CTypes.short, CTypes.unsignedShort)
@@ -779,6 +781,7 @@ private fun KotlinStubs.mapType(
         mapBlockType(type, retained = retained, location = typeLocation)
     }
 
+    // Note that this case also processes string arguments of Objective-C methods.
     isObjCReferenceType(type) -> ObjCReferenceValuePassing(symbols, type, retained = retained)
 
     else -> reportUnsupportedType("doesn't correspond to any C type")
@@ -1074,7 +1077,6 @@ private class ObjCReferenceValuePassing(
 
     override fun bridgedToC(expression: String): String = expression
     override fun cToBridged(expression: String): String = expression
-
 }
 
 private fun IrBuilderWithScope.convertPossiblyRetainedObjCPointer(
@@ -1361,6 +1363,40 @@ private class CStringArgumentPassing : KotlinToCArgumentPassing {
         return with(CValuesRefArgumentPassing) { passValue(cstr) }
     }
 
+}
+
+private class CStringValuePassing(private val symbols: KonanSymbols) : SimpleValuePassing() {
+    override val cBridgeType: CType
+        get() = CTypes.charPtr
+
+    override val cType: CType
+        get() = CTypes.charPtr
+
+    override val kotlinBridgeType: IrType
+        get() = symbols.interopCPointer.typeWithStarProjections
+
+    override fun KotlinToCCallBuilder.passValue(expression: IrExpression): CExpression {
+        val cstr = irBuilder.irCall(symbols.interopCstr.owner).apply {
+            extensionReceiver = expression
+        }
+        val cBridgeValue = passThroughBridge(
+                cValuesRefToPointer(cstr),
+                symbols.interopCPointer.typeWithStarProjections,
+                cType
+        )
+        return CExpression(cBridgeValue.name, cType)
+    }
+
+    // TODO: is it correct?
+    override fun IrBuilderWithScope.kotlinToBridged(expression: IrExpression): IrExpression = TODO()
+
+    override fun IrBuilderWithScope.bridgedToKotlin(expression: IrExpression, symbols: KonanSymbols): IrExpression =
+            irCall(symbols.interopToKString.owner).apply {
+                extensionReceiver = expression
+            }
+
+    override fun bridgedToC(expression: String): String = expression
+    override fun cToBridged(expression: String): String = expression
 }
 
 private object CValuesRefArgumentPassing : KotlinToCArgumentPassing {

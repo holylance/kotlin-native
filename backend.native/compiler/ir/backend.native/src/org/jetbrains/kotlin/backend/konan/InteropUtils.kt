@@ -55,6 +55,12 @@ internal class InteropBuiltIns(builtIns: KonanBuiltIns) {
                 TypeUtils.getClassDescriptor(extensionReceiverParameter.type) == cPointer
     }
 
+    val cPointerToKString = packageScope.getContributedFunctions("toKStringFromUtf8").single {
+        val extensionReceiverParameter = it.extensionReceiverParameter
+        extensionReceiverParameter != null &&
+                TypeUtils.getClassDescriptor(extensionReceiverParameter.type) == cPointer
+    }
+
     val cstr = packageScope.getContributedVariables("cstr").single()
     val wcstr = packageScope.getContributedVariables("wcstr").single()
     val memScope = packageScope.getContributedClass("MemScope")

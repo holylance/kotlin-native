@@ -122,6 +122,7 @@ internal class KonanSymbols(context: Context, private val symbolTable: SymbolTab
     val interopCPointer = symbolTable.referenceClass(context.interopBuiltIns.cPointer)
     val interopCstr = symbolTable.referenceSimpleFunction(context.interopBuiltIns.cstr.getter!!)
     val interopWcstr = symbolTable.referenceSimpleFunction(context.interopBuiltIns.wcstr.getter!!)
+    val interopToKString = symbolTable.referenceSimpleFunction(context.interopBuiltIns.cPointerToKString)
     val interopMemScope = symbolTable.referenceClass(context.interopBuiltIns.memScope)
     val interopCValue = symbolTable.referenceClass(context.interopBuiltIns.cValue)
     val interopCValues = symbolTable.referenceClass(context.interopBuiltIns.cValues)
