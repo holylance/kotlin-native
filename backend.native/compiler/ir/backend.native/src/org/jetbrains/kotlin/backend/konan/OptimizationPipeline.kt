@@ -13,7 +13,6 @@ private fun initializeLlvmGlobalPassRegistry() {
     LLVMInitializeCore(passRegistry)
     LLVMInitializeTransformUtils(passRegistry)
     LLVMInitializeScalarOpts(passRegistry)
-    LLVMInitializeObjCARCOpts(passRegistry)
     LLVMInitializeVectorization(passRegistry)
     LLVMInitializeInstCombine(passRegistry)
     LLVMInitializeIPO(passRegistry)
@@ -132,6 +131,7 @@ internal fun runLlvmOptimizationPipeline(context: Context) {
             LLVMPassManagerBuilderUseInlinerWithThreshold(passBuilder, threshold)
         }
         // Pipeline that is similar to `llvm-lto`.
+        // TODO: Add ObjC optimization passes.
         LLVMPassManagerBuilderPopulateLTOPassManager(passBuilder, modulePasses, Internalize = 0, RunInliner = 1)
         LLVMPassManagerBuilderDispose(passBuilder)
 
