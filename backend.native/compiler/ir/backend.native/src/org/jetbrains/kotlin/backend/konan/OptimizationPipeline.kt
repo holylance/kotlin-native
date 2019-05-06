@@ -46,11 +46,8 @@ private class LlvmPipelineConfiguration(context: Context) {
     val cpuArchitecture: String = when (target) {
         KonanTarget.IOS_ARM32 -> "armv7"
         KonanTarget.IOS_ARM64 -> "arm64"
-        KonanTarget.LINUX_X64 -> "x86-64"
-        KonanTarget.MINGW_X86 -> "sandybridge"
         KonanTarget.MACOS_X64 -> "core2"
-        KonanTarget.LINUX_ARM32_HFP -> "arm1136jf-s"
-        else -> error("There is no support for ${target.name} target yet")
+        else -> error("There is no support for ${target.name} target yet.")
     }
 
     val cpuFeatures: String = ""
@@ -111,7 +108,7 @@ internal fun runLlvmOptimizationPipeline(context: Context) {
         // TODO: use LLVMGetTargetFromName instead.
         val target = alloc<LLVMTargetRefVar>()
         val foundLlvmTarget = LLVMGetTargetFromTriple(config.targetTriple, target.ptr, null) == 0
-        assert(foundLlvmTarget) { "Cannot get target from triple ${config.targetTriple}." }
+        check(foundLlvmTarget) { "Cannot get target from triple ${config.targetTriple}." }
 
         val targetMachine = LLVMCreateTargetMachine(
                 target.value,

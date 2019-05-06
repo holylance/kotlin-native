@@ -75,14 +75,7 @@ internal class BitcodeCompiler(val context: Context) {
         return combined
     }
 
-    private fun llvmLink(bitcodeFiles: List<BitcodeFile>): BitcodeFile {
-        val combinedBc = temporary("link_output", ".bc")
-        hostLlvmTool("llvm-link", *bitcodeFiles.toTypedArray(), "-o", combinedBc)
-        return combinedBc
-    }
-
-    private fun opt(bitcodeFile: BitcodeFile): BitcodeFile {
-        val optFlags = platform.configurables as OptFlags
+    private fun opt(optFlags: OptFlags, bitcodeFile: BitcodeFile): BitcodeFile {
         val flags = (optFlags.optFlags + when {
             optimize -> optFlags.optOptFlags
             debug -> optFlags.optDebugFlags
@@ -100,8 +93,7 @@ internal class BitcodeCompiler(val context: Context) {
         return optimizedBc
     }
 
-    private fun llc(bitcodeFile: BitcodeFile): ObjectFile {
-        val llcFlags = platform.configurables as LlcFlags
+    private fun llc(llcFlags: LlcFlags, bitcodeFile: BitcodeFile): ObjectFile {
         val flags = (llcFlags.llcFlags + when {
             optimize -> llcFlags.llcOptFlags
             debug -> llcFlags.llcDebugFlags
@@ -113,8 +105,8 @@ internal class BitcodeCompiler(val context: Context) {
     }
 
     private fun bitcodeToWasm(configurables: WasmConfigurables, file: BitcodeFile): String {
-        val optimizedBc = opt(file)
-        val compiled = llc(optimizedBc)
+        val optimizedBc = opt(configurables, file)
+        val compiled = llc(configurables, optimizedBc)
 
         // TODO: should be moved to linker.
         val linkedWasm = temporary("linked", ".wasm")
