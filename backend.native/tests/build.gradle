@@ -762,7 +762,7 @@ task worker8(type: RunKonanTest) {
 
 task worker9(type: RunKonanTest) {
     disabled = (project.testTarget == 'wasm32') // Workers need pthreads.
-    goldValue = "zzz\n42\nOK\n"
+    goldValue = "zzz\n42\nOK\nfirst 2\nsecond 3\nfrozen OK\n"
     source = "runtime/workers/worker9.kt"
 }
 
@@ -3285,19 +3285,20 @@ task produce_dynamic(type: DynamicKonanTest) {
     cSource = "$projectDir/produce_dynamic/simple/main.c"
     goldValue = "Hello, dynamic!\n" +
                 "Base.foo\n" +
-                "Base.fooParam: a 1\n" +
-                "Child.fooParam: b 2\n" +
-                "Child.fooParam: c 3\n" +
+                "Base.fooParam: a 1 q\n" +
+                "Child.fooParam: b 2 null\n" +
+                "Child.fooParam: c 3 null\n" +
                 "Impl1.I: d 4 Impl1\n" +
                 "Impl2.I: e 5 Impl2\n" +
-                "String is Kotlin/Native\n" +
+                "String is Kotlin/Native nullable is Hi null is OK\n" +
                 "RO property is 42\n" +
                 "RW property is 239\n" +
                 "enum100 = 100\n" +
                 "object = 42\n" +
                 "singleton = I am single\n" +
                 "mutable = foo\n" +
-                "topLevel = 777 3\n"
+                "topLevel = 777 3\n" +
+                "Error handler: kotlin.Error: Expected error\n"
 }
 
 task library_mismatch(type: RunStandaloneKonanTest) {
@@ -3351,6 +3352,24 @@ if (isAppleTarget(project)) {
             }
         }
         swiftSources = ['framework/values/values.swift']
+    }
+
+    task testValuesGenericsFramework(type: FrameworkTest) {
+        frameworkName = 'ValuesGenerics'
+        konanArtifacts {
+            framework(frameworkName, targets: [ target ]) {
+                srcDir 'framework/values'
+                srcDir 'framework/values_generics'
+                baseDir "$testOutputFramework/$frameworkName"
+
+                if (!useCustomDist) {
+                    dependsOn ":${target}CrossDistRuntime", ':commonDistRuntime', ':distCompiler'
+                }
+
+                extraOpts "-Xembed-bitcode-marker", "-Xobjc-generics"
+            }
+        }
+        swiftSources = ['framework/values_generics/values.swift']
     }
 
     task testStdlibFramework(type: FrameworkTest) {
@@ -3428,7 +3447,7 @@ task coverage_basic_library(type: RunStandaloneKonanTest) {
     doFirst {
         def konancScript = isWindows() ? "konanc.bat" : "konanc"
         def konanc = "$dist/bin/$konancScript"
-        "$konanc $projectDir/coverage/basic/library/library.kt -p library -o $dir/lib_to_cover".execute().waitFor()
+        "$konanc -target ${getTarget(project).name} $projectDir/coverage/basic/library/library.kt -p library -o $dir/lib_to_cover".execute().waitFor()
     }
     
     flags = ["-Xcoverage-file=$dir/program.profraw", "-l", "$dir/lib_to_cover", "-Xlibrary-to-cover=$dir/lib_to_cover.klib", "-entry", "coverage.basic.library.main"]
@@ -3453,10 +3472,10 @@ task coverage_basic_library(type: RunStandaloneKonanTest) {
 
 task buildKonanStdlibTests(type: BuildKonanTest) {
     outputSourceSetName = "testOutputStdlib"
-    flags = [ "-Xmulti-platform", "-friend-modules",  project.rootProject.file("${project.properties['konan.home']}/klib/common/stdlib") ]
+    flags = [ "-Xmulti-platform", '-Xuse-experimental=kotlin.ExperimentalStdlibApi', "-friend-modules",  project.rootProject.file("${project.properties['konan.home']}/klib/common/stdlib") ]
     def testSources = externalStdlibTestsDir.absolutePath
     compileList = [ "$testSources/stdlib/test", "$testSources/stdlib/common",
-                    "stdlib_external/utils.kt", "stdlib_external/jsCollectionFactoriesActuals.kt" ]
+                    "stdlib_external/utils.kt", "stdlib_external/text/StringEncodingTestNative.kt", "stdlib_external/jsCollectionFactoriesActuals.kt" ]
     excludeList = [ "$testSources/stdlib/test/internalAnnotations.kt" ]
 }
 

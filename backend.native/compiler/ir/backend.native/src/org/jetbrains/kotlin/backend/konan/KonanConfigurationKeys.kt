@@ -30,6 +30,8 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create("fully qualified main() name")
         val EXPORTED_LIBRARIES: CompilerConfigurationKey<List<String>>
                 = CompilerConfigurationKey.create<List<String>>("libraries included into produced framework API")
+        val FRAMEWORK_IMPORT_HEADERS: CompilerConfigurationKey<List<String>>
+                = CompilerConfigurationKey.create<List<String>>("headers imported to framework header")
         val FRIEND_MODULES: CompilerConfigurationKey<List<String>>
                 = CompilerConfigurationKey.create<List<String>>("friend module paths")
         val GENERATE_TEST_RUNNER: CompilerConfigurationKey<TestRunnerKind>
@@ -94,8 +96,6 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create("target we compile for")
         val TEMPORARY_FILES_DIR: CompilerConfigurationKey<String?>
                 = CompilerConfigurationKey.create("directory for temporary files")
-        val TIME_PHASES: CompilerConfigurationKey<Boolean> 
-                = CompilerConfigurationKey.create("time backend phases")
         val VERIFY_BITCODE: CompilerConfigurationKey<Boolean> 
                 = CompilerConfigurationKey.create("verify bitcode")
         val VERIFY_DESCRIPTORS: CompilerConfigurationKey<Boolean> 
@@ -112,6 +112,8 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create<List<String>>("libraries that should be covered")
         val PROFRAW_PATH: CompilerConfigurationKey<String?>
                 = CompilerConfigurationKey.create("path to *.profraw coverage output")
+        val OBJC_GENERICS: CompilerConfigurationKey<Boolean>
+                = CompilerConfigurationKey.create("write objc header with generics support")
     }
 }
 

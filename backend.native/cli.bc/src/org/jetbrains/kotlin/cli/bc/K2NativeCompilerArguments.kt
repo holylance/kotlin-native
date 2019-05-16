@@ -119,6 +119,13 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
     )
     var exportedLibraries: Array<String>? = null
 
+    @Argument(
+            value = "-Xframework-import-header",
+            valueDescription = "<header>",
+            description = "Add additional header import to framework header"
+    )
+    var frameworkImportHeaders: Array<String>? = null
+
     @Argument(value = "-Xprint-bitcode", deprecatedName = "--print_bitcode", description = "Print llvm bitcode")
     var printBitCode: Boolean = false
 
@@ -145,9 +152,6 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
 
     @Argument(value = "-Xtemporary-files-dir", deprecatedName = "--temporary_files_dir", valueDescription = "<path>", description = "Save temporary files to the given directory")
     var temporaryFilesDir: String? = null
-
-    @Argument(value = "-Xtime", deprecatedName = "--time", description = "Report execution time for compiler phases")
-    var timePhases: Boolean = false
 
     @Argument(value = "-Xverify-bitcode", deprecatedName = "--verify_bitcode", description = "Verify llvm bitcode after each method")
     var verifyBitCode: Boolean = false
@@ -180,6 +184,9 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
 
     @Argument(value = "-Xcoverage-file", valueDescription = "<path>", description = "Save coverage information to the given file")
     var coverageFile: String? = null
+
+    @Argument(value = "-Xobjc-generics", description = "Enable experimental generics support for framework header")
+    var objcGenerics: Boolean = false
 
     override fun configureAnalysisFlags(collector: MessageCollector): MutableMap<AnalysisFlag<*>, Any> =
             super.configureAnalysisFlags(collector).also {

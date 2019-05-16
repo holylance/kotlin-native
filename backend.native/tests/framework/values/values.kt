@@ -280,6 +280,14 @@ class Deeply {
     }
 }
 
+class WithGenericDeeply() {
+    class Nested {
+        class Type<T> {
+            val thirtyThree = 33
+        }
+    }
+}
+
 data class CKeywords(val float: Float, val `enum`: Int, var goto: Boolean)
 
 interface Base1 {
@@ -354,4 +362,20 @@ class GH2931 {
 
 class GH2945(var errno: Int) {
     fun testErrnoInSelector(p: Int, errno: Int) = p + errno
+}
+
+class GH2830 {
+    interface I
+    private class PrivateImpl : I
+
+    fun getI(): Any = PrivateImpl()
+}
+
+class GH2959 {
+    interface I {
+        val id: Int
+    }
+    private class PrivateImpl(override val id: Int) : I
+
+    fun getI(id: Int): List<I> = listOf(PrivateImpl(id))
 }
