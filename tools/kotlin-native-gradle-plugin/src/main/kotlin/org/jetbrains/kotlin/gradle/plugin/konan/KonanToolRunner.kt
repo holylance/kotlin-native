@@ -19,6 +19,7 @@ package org.jetbrains.kotlin.gradle.plugin.konan
 import org.gradle.api.Named
 import org.gradle.api.Project
 import org.gradle.api.file.FileCollection
+import org.jetbrains.kotlin.konan.target.Family
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.util.DependencyProcessor
@@ -72,7 +73,20 @@ internal abstract class KonanCliRunner(
             "java.library.path" to "${project.konanHome}/konan/nativelib"
     )
 
-    override val environment = mutableMapOf("LIBCLANG_DISABLE_CRASH_RECOVERY" to "1")
+    override val environment = mutableMapOf("LIBCLANG_DISABLE_CRASH_RECOVERY" to "1").apply {
+        // See https://docs.oracle.com/javase/10/vm/signal-chaining.htm
+        val jre = System.getProperty("java.home")
+        when (HostManager.host.family) {
+            Family.OSX -> {
+                put("DYLD_FORCE_FLAT_NAMESPACE", "0")
+                put("DYLD_INSERT_LIBRARIES", "$jre/lib/libjsig.dylib")
+            }
+            Family.LINUX -> {
+                put("LD_PRELOAD", "$jre/lib/libjsig.so")
+            }
+            else -> { /* No signal chaining required. */ }
+        }
+    }
 
     private fun String.escapeQuotes() = replace("\"", "\\\"")
 
@@ -119,7 +133,7 @@ internal class KonanInteropRunner(project: Project, additionalJvmArgs: List<Stri
         if (HostManager.host == KonanTarget.MINGW_X64) {
 	    //TODO: Oh-ho-ho fix it in more convinient way.
             environment.put("PATH", DependencyProcessor.defaultDependenciesRoot.absolutePath +
-                    "\\msys2-mingw-w64-x86_64-gcc-7.3.0-clang-llvm-lld-6.0.1" +
+                    "\\msys2-mingw-w64-x86_64-gcc-7.3.0-clang-llvm-lld-6.0.1-2" +
                     "\\bin;${environment.get("PATH")}")
         }
     }
