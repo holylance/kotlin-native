@@ -98,8 +98,16 @@ open class FrameworkTest : DefaultTask() {
                 ?: throw RuntimeException("Executor wasn't found")
         // Hopefully, lexicographical comparison will work.
         val newMacos = System.getProperty("os.version").compareTo("10.14.4") >= 0
+        val dyldLibraryPathKey = if (target == KonanTarget.IOS_X64) {
+            "SIMCTL_CHILD_DYLD_LIBRARY_PATH"
+        } else {
+            "DYLD_LIBRARY_PATH"
+        }
+        val environment = if (newMacos) emptyMap() else mapOf(
+                dyldLibraryPathKey to libraryPath
+        )
         val (stdOut, stdErr, exitCode) = runProcess(
-                executor = executor.add(Action { it.environment = if (newMacos) emptyMap() else mapOf("DYLD_LIBRARY_PATH" to libraryPath) })::execute,
+                executor = executor.add(Action { it.environment = environment })::execute,
                 executable = testExecutable.toString())
 
         println("""
@@ -150,7 +158,7 @@ open class FrameworkTest : DefaultTask() {
         val bitcodeBuildTool = "${configurables.absoluteAdditionalToolsDir}/bin/bitcode-build-tool"
         val ldPath = "${configurables.absoluteTargetToolchain}/usr/bin/ld"
         val sdk = when (testTarget) {
-            KonanTarget.IOS_X64 -> Xcode.current.iphonesimulatorSdk
+            KonanTarget.IOS_X64 -> return // bitcode-build-tool doesn't support iPhone Simulator.
             KonanTarget.IOS_ARM64, KonanTarget.IOS_ARM32 -> Xcode.current.iphoneosSdk
             KonanTarget.MACOS_X64 -> Xcode.current.macosxSdk
             else -> error("Cannot validate bitcode for test target $testTarget")

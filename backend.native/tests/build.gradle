@@ -38,6 +38,7 @@ apply plugin: 'konan'
 configurations {
     cli_bc
     update_tests
+    update_stdlib_tests
 }
 
 repositories {
@@ -49,17 +50,22 @@ repositories {
 
 dependencies {
     cli_bc project(path: ':backend.native', configuration: 'cli_bc')
-    update_tests (group: 'org',  name: 'Kotlin_dev_Compiler', version: testKotlinVersion) {
+    update_tests (group: 'org',  name: 'Kotlin_dev_Compiler', version: testKotlinCompilerVersion) {
         artifact {
             name = 'internal/kotlin-test-data'
             type = 'zip'
         }
     }
+    update_stdlib_tests (group: 'org',  name: 'Kotlin_dev_Compiler', version: kotlinStdlibVersion) {
+        artifact {
+            name = 'internal/kotlin-stdlib-tests'
+            type = 'zip'
+        }
+    }
 }
-
 ext.testOutputRoot = rootProject.file("test.output").absolutePath
 ext.externalTestsDir = project.file("build/external")
-ext.externalStdlibTestsDir = project.file("build/stdlib_external")
+ext.externalStdlibTestsDir = project.file("build/stdlib_external/stdlib")
 externalTestsDir.mkdirs()
 externalStdlibTestsDir.mkdirs()
 
@@ -114,7 +120,7 @@ def update_external_tests() {
     delete(externalTestsDir)
     externalTestsDir.mkdirs()
 
-    def files = configurations.update_tests.asFileTree
+    def compilerTestsFiles = configurations.update_tests.asFileTree
     if (project.hasProperty("kotlinProjectPath")) {
         def f = Paths.get(project.property("kotlinProjectPath").toString(), "dist", "kotlin-test-data.zip").toFile()
         if (f.exists()) {
@@ -122,29 +128,31 @@ def update_external_tests() {
                 |Using $f as a source of codegen/box* and stdlib tests
                 |Update test data zip with :kotlin:zipTestData task
             """.stripMargin())
-            files = project.files(f)
+            compilerTestsFiles = project.files(f)
         }
     }
 
     copy {
-        files.each {
+        compilerTestsFiles.each {
             from(zipTree(it))
             into(externalTestsDir)
             include 'compiler/codegen/box/**'
             include 'compiler/codegen/boxInline/**'
             include 'compiler/compileKotlinAgainstKotlin/**'
+            exclude 'stdlib/**'
         }
     }
 
     delete(externalStdlibTestsDir)
     externalStdlibTestsDir.mkdirs()
+    def stdlibTestsFiles = configurations.update_stdlib_tests.asFileTree
     copy {
-        files.each {
+        stdlibTestsFiles.each {
             from(zipTree(it))
             into(externalStdlibTestsDir)
-            include 'stdlib/common/**'
-            include 'stdlib/test/**'
-            exclude 'stdlib/test/js/**'
+            include 'common/**'
+            include 'test/**'
+            exclude 'test/js/**'
         }
     }
 }
@@ -170,8 +178,10 @@ run {
 }
 
 task sanity {
-    if (!project.hasProperty("test.disable_update")) {
-        update_external_tests()
+    doFirst {
+        if (!project.hasProperty("test.disable_update")) {
+            update_external_tests()
+        }
     }
     dependsOn(tasksOf { it instanceof KonanTest && it.inDevelopersRun &&
             !it.getDependsOn().contains(':distPlatformLibs') })
@@ -586,6 +596,13 @@ task null_check(type: RunKonanTest) {
 
 task array_to_any(type: RunKonanTest) {
     source = "codegen/basics/array_to_any.kt"
+}
+
+task runtime_basic_init(type: RunStandaloneKonanTest) {
+    disabled = (project.testTarget == 'wasm32') // -g not yet properly works for WASM.
+    source = "runtime/basic/init.kt"
+    flags = ['-g']
+    expectedExitStatus = 0
 }
 
 task runtime_basic_exit(type: RunStandaloneKonanTest) {
@@ -1422,6 +1439,10 @@ task kclassEnumArgument(type: RunKonanTest) {
     source = "codegen/kclass/kClassEnumArgument.kt"
 }
 
+task associatedObjects1(type: RunKonanTest) {
+    source = "codegen/associatedObjects/associatedObjects1.kt"
+}
+
 task coroutines_simple(type: RunKonanTest) {
     goldValue = "42\n"
     source = "codegen/coroutines/simple.kt"
@@ -2071,7 +2092,7 @@ task extend_exception(type: RunKonanTest) {
 }
 
 task check_stacktrace_format(type: RunStandaloneKonanTest) {
-    disabled = true // !isAppleTarget(project)
+    disabled = !isAppleTarget(project) || project.globalTestArgs.contains('-opt')
     flags = ['-g']
     source = "runtime/exceptions/check_stacktrace_format.kt"
 }
@@ -3339,16 +3360,34 @@ if (isAppleTarget(project)) {
 
     task testValuesFramework(type: FrameworkTest) {
         frameworkName = 'Values'
+
+        final String dir = "$testOutputFramework/$frameworkName"
+        final File lazyHeader = file("$dir/$target-lazy.h")
+
+        doFirst {
+            final File expectedLazyHeader = file("framework/values/expectedLazy.h")
+
+            if (expectedLazyHeader.readLines() != lazyHeader.readLines()) {
+                exec {
+                    commandLine 'diff', '-u', expectedLazyHeader, lazyHeader
+                    ignoreExitValue = true
+                }
+                throw new Error("$expectedLazyHeader and $lazyHeader files differ")
+            }
+
+        }
+
         konanArtifacts {
             framework(frameworkName, targets: [ target ]) {
                 srcDir 'framework/values'
-                baseDir "$testOutputFramework/$frameworkName"
+                baseDir dir
 
                 if (!useCustomDist) {
                     dependsOn ":${target}CrossDistRuntime", ':commonDistRuntime', ':distCompiler'
                 }
 
                 extraOpts "-Xembed-bitcode-marker"
+                extraOpts "-Xemit-lazy-objc-header=$lazyHeader"
             }
         }
         swiftSources = ['framework/values/values.swift']
@@ -3474,7 +3513,7 @@ task buildKonanStdlibTests(type: BuildKonanTest) {
     outputSourceSetName = "testOutputStdlib"
     flags = [ "-Xmulti-platform", '-Xuse-experimental=kotlin.ExperimentalStdlibApi', "-friend-modules",  project.rootProject.file("${project.properties['konan.home']}/klib/common/stdlib") ]
     def testSources = externalStdlibTestsDir.absolutePath
-    compileList = [ "$testSources/stdlib/test", "$testSources/stdlib/common",
+    compileList = [ "$testSources/test", "$testSources/common",
                     "stdlib_external/utils.kt", "stdlib_external/text/StringEncodingTestNative.kt", "stdlib_external/jsCollectionFactoriesActuals.kt" ]
     excludeList = [ "$testSources/stdlib/test/internalAnnotations.kt" ]
 }
