@@ -4,7 +4,6 @@
  */
 package org.jetbrains.kotlin.cli.utilities
 
-import org.jetbrains.kotlin.konan.CURRENT
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.target.PlatformManager
 import org.jetbrains.kotlin.konan.library.*
@@ -12,6 +11,7 @@ import org.jetbrains.kotlin.konan.target.Distribution
 import org.jetbrains.kotlin.native.interop.gen.jvm.interop
 import org.jetbrains.kotlin.utils.addIfNotNull
 import org.jetbrains.kliopt.ArgParser
+import org.jetbrains.kotlin.konan.CURRENT
 import org.jetbrains.kotlin.konan.KonanVersion
 import org.jetbrains.kotlin.native.interop.tool.*
 

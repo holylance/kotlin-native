@@ -21,8 +21,16 @@ import org.jetbrains.kotlin.konan.*
 
 buildscript {
     apply from: "gradle/kotlinGradlePlugin.gradle"
-    apply from: "gradle/kotlinNativeShared.gradle"
+
+    repositories {
+        maven { url kotlinCompilerRepo }
+    }
+
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-native-shared:$konanVersion"
+    }
 }
+import org.jetbrains.kotlin.konan.*
 
 // Allows generating wrappers for the root build and all the samples during execution of the default 'wrapper' task.
 // Run './gradlew wrapper --gradle-version <version>' to update all the wrappers.
@@ -49,14 +57,14 @@ ext {
     kotlinTestAnnotationsCommonModule="org.jetbrains.kotlin:kotlin-test-annotations-common:${kotlinStdlibVersion}:sources"
     kotlinReflectModule="org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}"
     kotlinScriptRuntimeModule="org.jetbrains.kotlin:kotlin-script-runtime:${kotlinVersion}"
-    kotlinNativeSharedModule="org.jetbrains.kotlin:kotlin-native-shared:$sharedVersion"
+    kotlinNativeUtilsModule="org.jetbrains.kotlin:kotlin-native-utils:${kotlinVersion}"
 
     konanVersionFull = KonanVersionGeneratedKt.getCurrentKonanVersion()
 
     if (konanVersionFull.meta == MetaVersion.RELEASE) {
         gradlePluginVersion = kotlinVersion
     } else {
-        gradlePluginVersion = "$kotlinVersion-native-${konanVersionFull.toString()}"
+        gradlePluginVersion = "$kotlinVersion-native-$konanVersionFull"
     }
 }
 
@@ -74,9 +82,6 @@ allprojects {
         }
         maven {
             url kotlinCompilerRepo
-        }
-        maven {
-            url sharedRepo
         }
     }
 
@@ -205,8 +210,8 @@ dependencies {
     }
 }
 
-task versionJar {
-    dependsOn gradle.includedBuild('kotlin-native-version').task(':jar')
+task sharedJar {
+    dependsOn gradle.includedBuild('kotlin-native-shared').task(':jar')
 }
 
 task gradlePluginJar {
@@ -263,7 +268,7 @@ task distCompiler(type: Copy) {
     dependsOn ':backend.native:jar'
     dependsOn ':utilities:jar'
     dependsOn ':klib:jar'
-    dependsOn ':versionJar'
+    dependsOn ':sharedJar'
 
     destinationDir distDir
 
@@ -323,7 +328,7 @@ task distCompiler(type: Copy) {
         into('konan/lib')
     }
 
-    from(file("${gradle.includedBuild('kotlin-native-version').projectDir}/build/libs")) {
+    from(file("${gradle.includedBuild('kotlin-native-shared').projectDir}/build/libs")) {
         into('konan/lib')
     }
 

@@ -21,15 +21,14 @@ buildscript {
     apply(from = "$rootBuildDirectory/gradle/kotlinGradlePlugin.gradle")
 }
 
-
 val buildKotlinCompilerRepo: String by project
-val sharedRepo: String by project
+val kotlinCompilerRepo: String by project
 
 val repos = listOf(
     buildKotlinCompilerRepo,
+    kotlinCompilerRepo,
     "https://cache-redirector.jetbrains.com/maven-central",
-    "https://kotlin.bintray.com/kotlinx",
-    sharedRepo
+    "https://kotlin.bintray.com/kotlinx"
 )
 
 allprojects {
