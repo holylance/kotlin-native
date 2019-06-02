@@ -800,17 +800,16 @@ internal class ObjCExportTranslatorImpl(
     private tailrec fun mapObjCObjectReferenceTypeIgnoringNullability(descriptor: ClassDescriptor): ObjCNonNullReferenceType {
         // TODO: more precise types can be used.
 
-        if (descriptor.isObjCMetaClass()) return ObjCIdType
+        if (descriptor.isObjCMetaClass()) return ObjCMetaClassType
+        if (descriptor.isObjCProtocolClass()) return foreignClassType("Protocol")
 
-        if (descriptor.isExternalObjCClass()) {
+        if (descriptor.isExternalObjCClass() || descriptor.isObjCForwardDeclaration()) {
             return if (descriptor.isInterface) {
                 val name = descriptor.name.asString().removeSuffix("Protocol")
-                generator?.referenceProtocol(name)
-                ObjCProtocolType(name)
+                foreignProtocolType(name)
             } else {
                 val name = descriptor.name.asString()
-                generator?.referenceClass(name)
-                ObjCClassType(name)
+                foreignClassType(name)
             }
         }
 
@@ -819,6 +818,16 @@ internal class ObjCExportTranslatorImpl(
         }
 
         return ObjCIdType
+    }
+
+    private fun foreignProtocolType(name: String): ObjCProtocolType {
+        generator?.referenceProtocol(name)
+        return ObjCProtocolType(name)
+    }
+
+    private fun foreignClassType(name: String): ObjCClassType {
+        generator?.referenceClass(name)
+        return ObjCClassType(name)
     }
 
     internal fun mapFunctionTypeIgnoringNullability(

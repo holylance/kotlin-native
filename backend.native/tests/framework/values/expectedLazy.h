@@ -526,6 +526,22 @@ __attribute__((swift_name("MyAbstractList")))
 @interface ValuesMyAbstractList : NSObject
 @end;
 
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("TestKClass")))
+@interface ValuesTestKClass : KotlinBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (id<ValuesKotlinKClass> _Nullable)getKotlinClassClazz:(Class)clazz __attribute__((swift_name("getKotlinClass(clazz:)")));
+- (id<ValuesKotlinKClass> _Nullable)getKotlinClassProtocol:(Protocol *)protocol __attribute__((swift_name("getKotlinClass(protocol:)")));
+- (BOOL)isTestKClassKClass:(id<ValuesKotlinKClass>)kClass __attribute__((swift_name("isTestKClass(kClass:)")));
+- (BOOL)isIKClass:(id<ValuesKotlinKClass>)kClass __attribute__((swift_name("isI(kClass:)")));
+@end;
+
+__attribute__((swift_name("TestKClassI")))
+@protocol ValuesTestKClassI
+@required
+@end;
+
 @interface ValuesEnumeration (ValuesKt)
 - (ValuesEnumeration *)getAnswer __attribute__((swift_name("getAnswer()")));
 @end;
@@ -600,6 +616,8 @@ __attribute__((swift_name("ValuesKt")))
 + (void (^)(void))asNothingBlockBlock:(id _Nullable (^)(void))block __attribute__((swift_name("asNothingBlock(block:)")));
 + (void (^ _Nullable)(void))getNullBlock __attribute__((swift_name("getNullBlock()")));
 + (BOOL)isBlockNullBlock:(void (^ _Nullable)(void))block __attribute__((swift_name("isBlockNull(block:)")));
++ (void)takeForwardDeclaredClassObj:(ForwardDeclaredClass *)obj __attribute__((swift_name("takeForwardDeclaredClass(obj:)")));
++ (void)takeForwardDeclaredProtocolObj:(id<ForwardDeclared>)obj __attribute__((swift_name("takeForwardDeclaredProtocol(obj:)")));
 @property (class, readonly) double dbl __attribute__((swift_name("dbl")));
 @property (class, readonly) float flt __attribute__((swift_name("flt")));
 @property (class, readonly) int32_t integer __attribute__((swift_name("integer")));

@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.backend.konan
 
+import org.jetbrains.kotlin.backend.konan.descriptors.findPackage
 import org.jetbrains.kotlin.backend.konan.descriptors.getArgumentValueOrNull
 import org.jetbrains.kotlin.backend.konan.descriptors.getStringValue
 import org.jetbrains.kotlin.backend.konan.descriptors.getStringValueOrNull
@@ -30,10 +31,12 @@ import org.jetbrains.kotlin.types.typeUtil.supertypes
 internal val interopPackageName = InteropFqNames.packageName
 internal val objCObjectFqName = interopPackageName.child(Name.identifier("ObjCObject"))
 private val objCClassFqName = interopPackageName.child(Name.identifier("ObjCClass"))
+private val objCProtocolFqName = interopPackageName.child(Name.identifier("ObjCProtocol"))
 internal val externalObjCClassFqName = interopPackageName.child(Name.identifier("ExternalObjCClass"))
 private val objCMethodFqName = interopPackageName.child(Name.identifier("ObjCMethod"))
 private val objCConstructorFqName = FqName("kotlinx.cinterop.ObjCConstructor")
 private val objCFactoryFqName = interopPackageName.child(Name.identifier("ObjCFactory"))
+private val objcnamesForwardDeclarationsPackageName = Name.identifier("objcnames")
 
 @Deprecated("Use IR version rather than descriptor version")
 fun ClassDescriptor.isObjCClass(): Boolean =
@@ -61,9 +64,18 @@ fun IrClass.isExternalObjCClass(): Boolean = this.isObjCClass() &&
             it.descriptor.annotations.hasAnnotation(externalObjCClassFqName)
         }
 
+fun ClassDescriptor.isObjCForwardDeclaration(): Boolean =
+        this.findPackage().fqName.startsWith(objcnamesForwardDeclarationsPackageName)
+
 fun ClassDescriptor.isObjCMetaClass(): Boolean = this.getAllSuperClassifiers().any {
     it.fqNameSafe == objCClassFqName
 }
+
+fun IrClass.isObjCProtocolClass(): Boolean =
+        this.fqNameSafe == objCProtocolFqName
+
+fun ClassDescriptor.isObjCProtocolClass(): Boolean =
+        this.fqNameSafe == objCProtocolFqName
 
 fun FunctionDescriptor.isObjCClassMethod() =
         this.containingDeclaration.let { it is ClassDescriptor && it.isObjCClass() }
