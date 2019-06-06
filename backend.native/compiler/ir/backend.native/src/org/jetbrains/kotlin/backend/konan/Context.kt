@@ -13,7 +13,8 @@ import org.jetbrains.kotlin.backend.common.descriptors.WrappedTypeParameterDescr
 import org.jetbrains.kotlin.backend.common.validateIrModule
 import org.jetbrains.kotlin.backend.konan.descriptors.*
 import org.jetbrains.kotlin.backend.konan.ir.KonanIr
-import org.jetbrains.kotlin.backend.konan.library.LinkData
+import org.jetbrains.kotlin.backend.konan.library.KonanLibraryWriter
+import org.jetbrains.kotlin.library.SerializedMetadata
 import org.jetbrains.kotlin.backend.konan.llvm.*
 import org.jetbrains.kotlin.backend.konan.lower.DECLARATION_ORIGIN_BRIDGE_METHOD
 import org.jetbrains.kotlin.backend.konan.optimizations.Devirtualization
@@ -49,10 +50,12 @@ import kotlin.LazyThreadSafetyMode.PUBLICATION
 import kotlin.reflect.KProperty
 import org.jetbrains.kotlin.backend.common.ir.copyTo
 import org.jetbrains.kotlin.backend.common.serialization.KotlinMangler
+import org.jetbrains.kotlin.backend.common.serialization.SerializedIr
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCExport
 import org.jetbrains.kotlin.backend.konan.llvm.coverage.CoverageManager
 import org.jetbrains.kotlin.ir.symbols.impl.IrTypeParameterSymbolImpl
 import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.konan.library.KonanLibraryLayout
 
 /**
  * Offset for synthetic elements created by lowerings and not attributable to other places in the source code.
@@ -215,6 +218,7 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
     private val packageScope by lazy { builtIns.builtInsModule.getPackage(KonanFqNames.internalPackageName).memberScope }
 
     val nativePtr by lazy { packageScope.getContributedClassifier(NATIVE_PTR_NAME) as ClassDescriptor }
+    val nonNullNativePtr by lazy { packageScope.getContributedClassifier(NON_NULL_NATIVE_PTR_NAME) as ClassDescriptor }
     val getNativeNullPtr  by lazy { packageScope.getContributedFunctions("getNativeNullPtr").single() }
     val immutableBlobOf by lazy {
         builtIns.builtInsModule.getPackage(KonanFqNames.packageName).memberScope.getContributedFunctions("immutableBlobOf").single()
@@ -257,17 +261,17 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
         KonanReflectionTypes(moduleDescriptor, KonanFqNames.internalPackageName)
     }
 
-    private val vtableBuilders = mutableMapOf<IrClass, ClassVtablesBuilder>()
+    val layoutBuilders = mutableMapOf<IrClass, ClassLayoutBuilder>()
 
-    fun getVtableBuilder(classDescriptor: IrClass) = vtableBuilders.getOrPut(classDescriptor) {
-        ClassVtablesBuilder(classDescriptor, this)
+    fun getLayoutBuilder(irClass: IrClass) = layoutBuilders.getOrPut(irClass) {
+        ClassLayoutBuilder(irClass, this)
     }
 
-    // We serialize untouched descriptor tree and inline IR bodies
-    // right after the frontend.
+    // We serialize untouched descriptor tree and IR.
     // But we have to wait until the code generation phase,
     // to dump this information into generated file.
-    var serializedLinkData: LinkData? = null
+    var serializedMetadata: SerializedMetadata? = null
+    var serializedIr: SerializedIr? = null
     var dataFlowGraph: ByteArray? = null
 
     val librariesWithDependencies by lazy {
@@ -321,6 +325,7 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
     val llvmImports: LlvmImports = Llvm.ImportsImpl(this)
     lateinit var llvmDeclarations: LlvmDeclarations
     lateinit var bitcodeFileName: String
+    lateinit var library: KonanLibraryLayout
 
     val cStubsManager = CStubsManager(config.target)
 
@@ -458,6 +463,8 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
     lateinit var lifetimes: MutableMap<IrElement, Lifetime>
     lateinit var codegenVisitor: CodeGeneratorVisitor
     var devirtualizationAnalysisResult: Devirtualization.AnalysisResult? = null
+
+    var referencedFunctions: Set<IrFunction>? = null
 
     val isNativeLibrary: Boolean by lazy {
         val kind = config.configuration.get(KonanConfigKeys.PRODUCE)

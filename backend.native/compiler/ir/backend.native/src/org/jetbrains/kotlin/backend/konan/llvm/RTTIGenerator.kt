@@ -10,14 +10,15 @@ import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.descriptors.*
 import org.jetbrains.kotlin.backend.konan.ir.*
-import org.jetbrains.kotlin.backend.konan.ir.isAnonymousObject
-import org.jetbrains.kotlin.backend.konan.ir.isLocal
 import org.jetbrains.kotlin.backend.konan.isExternalObjCClassMethod
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.expressions.IrClassReference
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.konan.KonanAbiVersion
+import org.jetbrains.kotlin.ir.util.fqNameSafe
+import org.jetbrains.kotlin.ir.util.isAnnotationClass
+import org.jetbrains.kotlin.ir.util.isInterface
+import org.jetbrains.kotlin.library.KotlinAbiVersion
 import org.jetbrains.kotlin.name.FqName
 
 internal class RTTIGenerator(override val context: Context) : ContextUtils {
@@ -47,7 +48,7 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
     private fun checkAcyclicClass(irClass: IrClass): Boolean = when {
         irClass.symbol == context.ir.symbols.array -> false
         irClass.isArray -> true
-        context.llvmDeclarations.forClass(irClass).fields.all { checkAcyclicFieldType(it.type) } -> true
+        context.getLayoutBuilder(irClass).fields.all { checkAcyclicFieldType(it.type) } -> true
         else -> false
     }
 
@@ -93,7 +94,7 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
 
                     extendedInfo,
 
-                    Int32(KonanAbiVersion.CURRENT.version),
+                    Int32(KotlinAbiVersion.CURRENT.version),
 
                     Int32(size),
 
@@ -248,9 +249,9 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
 
     fun vtable(irClass: IrClass): ConstArray {
         // TODO: compile-time resolution limits binary compatibility.
-        val vtableEntries = context.getVtableBuilder(irClass).vtableEntries.map {
+        val vtableEntries = context.getLayoutBuilder(irClass).vtableEntries.map {
             val implementation = it.implementation
-            if (implementation == null || implementation.isExternalObjCClassMethod()) {
+            if (implementation == null || implementation.isExternalObjCClassMethod() || context.referencedFunctions?.contains(implementation) == false) {
                 NullPointer(int8Type)
             } else {
                 implementation.entryPointAddress
@@ -261,7 +262,7 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
 
     fun methodTableRecords(irClass: IrClass): List<MethodTableRecord> {
         val functionNames = mutableMapOf<Long, OverriddenFunctionInfo>()
-        return context.getVtableBuilder(irClass).methodTableEntries.map {
+        return context.getLayoutBuilder(irClass).methodTableEntries.map {
             val functionName = it.overriddenFunction.functionName
             val nameSignature = functionName.localHash
             val previous = functionNames.putIfAbsent(nameSignature.value, it)
@@ -270,7 +271,10 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
 
             // TODO: compile-time resolution limits binary compatibility.
             val implementation = it.implementation
-            val methodEntryPoint = implementation?.entryPointAddress
+            val methodEntryPoint =
+                if (implementation == null || context.referencedFunctions?.contains(implementation) == false)
+                    null
+                else implementation.entryPointAddress
             MethodTableRecord(nameSignature, methodEntryPoint)
         }.sortedBy { it.nameSignature.value }
     }
@@ -295,11 +299,11 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
                     NullPointer(int32Type), NullPointer(int8Type), NullPointer(kInt8Ptr))
         } else {
             data class FieldRecord(val offset: Int, val type: Int, val name: String)
-            val fields = getStructElements(bodyType).drop(1).mapIndexedNotNull { index, type ->
+            val fields = getStructElements(bodyType).drop(1).mapIndexed { index, type ->
                 FieldRecord(
                         LLVMOffsetOfElement(llvmTargetData, bodyType, index + 1).toInt(),
                         mapRuntimeType(type),
-                        llvmDeclarations.fields[index].name.asString())
+                        context.getLayoutBuilder(irClass).fields[index].name.asString())
             }
             val offsetsPtr = staticData.placeGlobalConstArray("kextoff:$className", int32Type,
                     fields.map { Int32(it.offset) })
@@ -315,7 +319,7 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
     }
 
     private fun genAssociatedObjects(irClass: IrClass): ConstPointer? {
-        val associatedObjects = getAssociatedObjects(irClass)
+        val associatedObjects = context.getLayoutBuilder(irClass).associatedObjects
         if (associatedObjects.isEmpty()) {
             return null
         }
@@ -423,42 +427,6 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
                         .joinToString(".") { it.name.asString() }
         )
     }
-}
-
-private fun getAssociatedObjects(irClass: IrClass): Map<IrClass, IrClass> {
-    val result = mutableMapOf<IrClass, IrClass>()
-
-    irClass.annotations.forEach {
-        val irFile = irClass.getContainingFile()
-
-        val annotationClass = (it.symbol.owner as? IrConstructor)?.constructedClass
-                ?: error(irFile, it, "unexpected annotation")
-
-        if (annotationClass.hasAnnotation(RuntimeNames.associatedObjectKey)) {
-            val argument = it.getValueArgument(0)
-
-            val irClassReference = argument as? IrClassReference
-                    ?: error(irFile, argument, "unexpected annotation argument")
-
-            val associatedObject = irClassReference.symbol.owner
-
-            if (associatedObject !is IrClass || !associatedObject.isObject) {
-                error(irFile, irClassReference, "argument is not a singleton")
-            }
-
-            if (annotationClass in result) {
-                error(
-                        irFile,
-                        it,
-                        "duplicate value for ${annotationClass.name}, previous was ${result[annotationClass]?.name}"
-                )
-            }
-
-            result[annotationClass] = associatedObject
-        }
-    }
-
-    return result
 }
 
 // Keep in sync with Konan_TypeFlags in TypeInfo.h.
