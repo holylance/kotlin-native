@@ -167,16 +167,16 @@ clean {
     }
 }
 
-TaskCollection<KonanTest> tasksOf(Closure<Boolean> filter) {
+TaskCollection<Task> tasksOf(Class<? extends Task> type, Closure<Boolean> filter) {
     String prefix = project.findProperty("prefix")
-    project.tasks.withType(KonanTest)
+    project.tasks.withType(type)
             .matching { filter(it) && it.enabled && (prefix != null ? it.name.startsWith(prefix) : true) }
 }
 
 run {
-    dependsOn(tasksOf { it instanceof KonanLocalTest ||
+    dependsOn(tasksOf(KonanTest.class, { it instanceof KonanLocalTest ||
             it instanceof KonanStandaloneTest // includes driver, interop and library tests
-    })
+    }))
     // Add framework tests
     dependsOn(project.tasks.withType(FrameworkTest))
 }
@@ -187,9 +187,9 @@ task sanity {
             update_external_tests()
         }
     }
-    dependsOn(tasksOf { (it instanceof KonanLocalTest || it instanceof KonanStandaloneTest) &&
-            !it.getDependsOn().contains(':distPlatformLibs') })
-    dependsOn(tasksOf { it instanceof KonanGTest })
+    dependsOn(tasksOf(KonanTest.class, { (it instanceof KonanLocalTest || it instanceof KonanStandaloneTest) &&
+            !it.getDependsOn().contains(':distPlatformLibs') }))
+    dependsOn(tasksOf(KonanTest.class, { it instanceof KonanGTest }))
 }
 
 // Collect reports in one json.
@@ -352,7 +352,7 @@ task run_external () {
     createTestTasks(externalTestsDir, RunExternalTestGroup) { }
 
     // Set up dependencies.
-    dependsOn(tasksOf { it instanceof RunExternalTestGroup || it instanceof KonanGTest })
+    dependsOn(tasksOf(OldKonanTest.class, { it instanceof RunExternalTestGroup || it instanceof KonanGTest }))
 }
 
 task daily() {
@@ -2097,7 +2097,6 @@ task string_builder0(type: KonanLocalTest) {
 }
 
 task string_builder1(type: KonanLocalTest) {
-    expectedFail = (project.testTarget == 'wasm32') // Uses exceptions.
     goldValue = "HelloKotlin\n42\n0.1\ntrue\n\n"
     source = "runtime/text/string_builder1.kt"
 }
@@ -3300,7 +3299,6 @@ interopTest("interop_bitfields") {
 
 interopTest("interop_funptr") {
     disabled = (project.testTarget == 'wasm32') // No interop for wasm yet.
-    expectedFail = (project.testTarget == 'linux_mips32') // fails because of big-endiannes
     goldValue = "42\n17\n1\n0\n42\n42\n"
     source = "interop/basics/funptr.kt"
     interop = 'cfunptr'
