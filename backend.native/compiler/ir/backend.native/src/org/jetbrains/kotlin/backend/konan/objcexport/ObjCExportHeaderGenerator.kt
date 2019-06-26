@@ -604,7 +604,7 @@ internal class ObjCExportTranslatorImpl(
     private fun buildMethod(method: FunctionDescriptor, baseMethod: FunctionDescriptor, objCExportScope: ObjCExportScope): ObjCMethod {
         fun collectParameters(baseMethodBridge: MethodBridge, method: FunctionDescriptor): List<ObjCParameter> {
             fun unifyName(initialName: String, usedNames: Set<String>): String {
-                var unique = initialName
+                var unique = initialName.toValidObjCSwiftIdentifier()
                 while (unique in usedNames || unique in cKeywords) {
                     unique += "_"
                 }
@@ -639,8 +639,14 @@ internal class ObjCExportTranslatorImpl(
                     MethodBridgeValueParameter.ErrorOutParameter ->
                         ObjCPointerType(ObjCNullableReferenceType(ObjCClassType("NSError")), nullable = true)
 
-                    is MethodBridgeValueParameter.KotlinResultOutParameter ->
-                        ObjCPointerType(mapType(method.returnType!!, bridge.bridge, objCExportScope), nullable = true)
+                    is MethodBridgeValueParameter.KotlinResultOutParameter -> {
+                        val resultType = mapType(method.returnType!!, bridge.bridge, objCExportScope)
+                        // Note: non-nullable reference or pointer type is unusable here
+                        // when passing reference to local variable from Swift because it
+                        // would require a non-null initializer then.
+                        val pointeeType = resultType.makeNullableIfReferenceOrPointer()
+                        ObjCPointerType(pointeeType, nullable = true)
+                    }
                 }
 
                 parameters += ObjCParameter(uniqueName, p, type)
@@ -889,7 +895,7 @@ internal class ObjCExportTranslatorImpl(
                 ObjCValueType.UNSIGNED_LONG_LONG -> ObjCPrimitiveType("uint64_t")
                 ObjCValueType.FLOAT -> ObjCPrimitiveType("float")
                 ObjCValueType.DOUBLE -> ObjCPrimitiveType("double")
-                ObjCValueType.POINTER -> ObjCPointerType(ObjCVoidType)
+                ObjCValueType.POINTER -> ObjCPointerType(ObjCVoidType, kotlinType.binaryRepresentationIsNullable())
             }
             // TODO: consider other namings.
         }
@@ -977,6 +983,13 @@ abstract class ObjCExportHeaderGenerator internal constructor(
         }
 
         add("NS_ASSUME_NONNULL_BEGIN")
+        add("#pragma clang diagnostic push")
+        listOf(
+                "-Wunknown-warning-option",
+                "-Wnullability"
+        ).forEach {
+            add("#pragma clang diagnostic ignored \"$it\"")
+        }
         add("")
 
         stubs.forEach {
@@ -984,6 +997,7 @@ abstract class ObjCExportHeaderGenerator internal constructor(
             add("")
         }
 
+        add("#pragma clang diagnostic pop")
         add("NS_ASSUME_NONNULL_END")
     }
 

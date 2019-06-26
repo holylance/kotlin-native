@@ -451,3 +451,43 @@ abstract class ForwardC1 {
 }
 
 interface TestSR10177Workaround
+
+interface TestClashes1 {
+    val clashingProperty: Int
+}
+
+interface TestClashes2 {
+    val clashingProperty: Any
+    val clashingProperty_: Any
+}
+
+class TestClashesImpl : TestClashes1, TestClashes2 {
+    override val clashingProperty: Int
+        get() = 1
+
+    override val clashingProperty_: Int
+        get() = 2
+}
+
+class TestInvalidIdentifiers {
+    class `$Foo`
+    class `Bar$`
+
+    fun `a$d$d`(`$1`: Int, `2`: Int, `3`: Int): Int = `$1` + `2` + `3`
+
+    var `$status`: String = ""
+
+    enum class E(val value: Int) {
+        `4$`(4),
+        `5$`(5),
+        `_`(6),
+        `__`(7)
+    }
+
+    companion object `Companion$` {
+        val `42` = 42
+    }
+
+    val `$` = '$'
+    val `_` = '_'
+}
