@@ -193,6 +193,7 @@ internal class SpecialDeclarationsFactory(val context: Context) : KotlinMangler 
 }
 
 internal class Context(config: KonanConfig) : KonanBackendContext(config) {
+    lateinit var frontendServices: FrontendServices
     lateinit var environment: KotlinCoreEnvironment
     lateinit var bindingContext: BindingContext
 
@@ -449,6 +450,8 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
     fun shouldContainDebugInfo() = config.debug
 
     fun shouldOptimize() = config.configuration.getBoolean(KonanConfigKeys.OPTIMIZATION)
+
+    val memoryModel = config.memoryModel
 
     override var inVerbosePhase = false
     override fun log(message: () -> String) {
