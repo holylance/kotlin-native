@@ -448,6 +448,8 @@ class RunExternalTestGroup extends OldKonanTest {
                             if (!Character.isJavaIdentifierPart(line.charAt(idx - 1))) {
                                 line = line.substring(0, idx) + "$sourceName.$pkg" + line.substring(idx + pkg.length())
                                 idx += sourceName.length() + pkg.length() + 1
+                            } else {
+                                idx += pkg.length()
                             }
                         }
                     }
