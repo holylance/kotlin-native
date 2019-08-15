@@ -14,12 +14,10 @@ import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.descriptors.resolveFakeOverride
 import org.jetbrains.kotlin.backend.konan.ir.*
 import org.jetbrains.kotlin.config.languageVersionSettings
-import org.jetbrains.kotlin.backend.common.lower.ProvisionalFunctionExpressionLowering
 import org.jetbrains.kotlin.descriptors.ValueDescriptor
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
-import org.jetbrains.kotlin.ir.builders.irGet
 import org.jetbrains.kotlin.ir.builders.irReturn
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
@@ -32,7 +30,6 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
-import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 internal class FunctionInlining(val context: Context) : IrElementTransformerVoidWithContext() {
@@ -53,10 +50,7 @@ internal class FunctionInlining(val context: Context) : IrElementTransformerVoid
         if (callee.isTypeOfIntrinsic())
             return expression
 
-        /**
-         * HACK: it's temporary workaround over inliner's disability to work with IrFunctionExpression, should be removed.
-         */
-        val actualCallee = getFunctionDeclaration(callee.symbol).transform(ProvisionalFunctionExpressionLowering(), null) as IrFunction
+        val actualCallee = getFunctionDeclaration(callee.symbol)
 
         val parent = allScopes.map { it.irElement }.filterIsInstance<IrDeclarationParent>().lastOrNull()
 
@@ -82,11 +76,7 @@ internal class FunctionInlining(val context: Context) : IrElementTransformerVoid
         }
     }
 
-    private val inlineConstructor = FqName("kotlin.native.internal.InlineConstructor")
-
-    private val IrFunction.isInlineConstructor get() = annotations.hasAnnotation(inlineConstructor)
-
-    private val IrFunction.needsInlining get() = isInlineConstructor || (this.isInline && !this.isExternal)
+    private val IrFunction.needsInlining get() = this.isInline && !this.isExternal
 
     private inner class Inliner(val callSite: IrFunctionAccessExpression,
                                 val callee: IrFunction,
@@ -132,45 +122,11 @@ internal class FunctionInlining(val context: Context) : IrElementTransformerVoid
             val statements = (copiedCallee.body as IrBlockBody).statements
 
             val irReturnableBlockSymbol = IrReturnableBlockSymbolImpl(copiedCallee.descriptor.original)
-            val startOffset = callee.startOffset
             val endOffset = callee.endOffset
             /* creates irBuilder appending to the end of the given returnable block: thus why we initialize
              * irBuilder with (..., endOffset, endOffset).
              */
             val irBuilder = context.createIrBuilder(irReturnableBlockSymbol, endOffset, endOffset)
-
-            if (callee.isInlineConstructor) {
-                // Copier sets parent to be the current function but
-                // constructor's parent cannot be a function.
-                val constructedClass = callee.parentAsClass
-                copiedCallee.parent = constructedClass
-                val delegatingConstructorCall = statements[0] as IrDelegatingConstructorCall
-                // TODO: Try use type parameters from callee.
-                irBuilder.run {
-                    val constructorCall = IrConstructorCallImpl(
-                            startOffset, endOffset,
-                            callSite.type,
-                            delegatingConstructorCall.symbol, delegatingConstructorCall.descriptor,
-                            constructedClass.typeParameters.size, 0,
-                            delegatingConstructorCall.symbol.owner.valueParameters.size
-                    ).apply {
-                        delegatingConstructorCall.symbol.owner.valueParameters.forEach {
-                            putValueArgument(it.index, delegatingConstructorCall.getValueArgument(it.index))
-                        }
-                        constructedClass.typeParameters.forEach {
-                            putTypeArgument(it.index, delegatingConstructorCall.getTypeArgument(it.index))
-                        }
-                    }
-                    val oldThis = constructedClass.thisReceiver!!
-                    val newThis = currentScope.scope.createTemporaryVariableWithWrappedDescriptor(
-                            irExpression = constructorCall,
-                            nameHint = constructedClass.fqNameForIrSerialization.toString() + ".this"
-                    )
-                    statements[0] = newThis
-                    substituteMap[oldThis] = irGet(newThis)
-                    statements.add(irReturn(irGet(newThis)))
-                }
-            }
 
             val sourceFile = callee.file
 
@@ -271,11 +227,10 @@ internal class FunctionInlining(val context: Context) : IrElementTransformerVoid
                     }.implicitCastIfNeededTo(expression.type)
                     return this@FunctionInlining.visitExpression(super.visitExpression(immediateCall))
                 }
-                if (functionArgument !is IrBlock)
+                if (functionArgument !is IrFunctionExpression)
                     return super.visitCall(expression)
 
-                val functionDeclaration = functionArgument.statements[0] as IrFunction
-                val newExpression = inlineFunction(expression, functionDeclaration, false) // Inline the lambda. Lambda parameters will be substituted with lambda arguments.
+                val newExpression = inlineFunction(expression, functionArgument.function, false) // Inline the lambda. Lambda parameters will be substituted with lambda arguments.
                 return newExpression.transform(this, null)                          // Substitute lambda arguments with target function arguments.
             }
 
@@ -306,21 +261,9 @@ internal class FunctionInlining(val context: Context) : IrElementTransformerVoid
                                                 val argumentExpression: IrExpression) {
 
             val isInlinableLambdaArgument: Boolean
-                get() {
-                    if (!parameter.isInlineParameter()) return false
-                    if (argumentExpression is IrFunctionReference) return true
-
-                    // Do pattern-matching on IR.
-                    if (argumentExpression !is IrBlock) return false
-                    if (argumentExpression.origin != IrStatementOrigin.LAMBDA &&
-                            argumentExpression.origin != IrStatementOrigin.ANONYMOUS_FUNCTION) return false
-                    val statements = argumentExpression.statements
-                    val irFunction = statements[0]
-                    val irCallableReference = statements[1]
-                    if (irFunction !is IrFunction) return false
-                    if (irCallableReference !is IrCallableReference) return false
-                    return true
-                }
+                get() = parameter.isInlineParameter() &&
+                        (argumentExpression is IrFunctionReference
+                        || argumentExpression is IrFunctionExpression)
 
             val isImmutableVariableLoad: Boolean
                 get() = argumentExpression.let {
