@@ -63,9 +63,12 @@ internal enum class IntrinsicType {
     IDENTITY,
     IMMUTABLE_BLOB,
     INIT_INSTANCE,
+    // Enums
+    ENUM_VALUES,
+    ENUM_VALUE_OF,
     // Coroutines
     GET_CONTINUATION,
-    RETURN_IF_SUSPEND,
+    RETURN_IF_SUSPENDED,
     COROUTINE_LAUNCHPAD,
     // Interop
     INTEROP_READ_BITS,
@@ -238,7 +241,7 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
                 IntrinsicType.IDENTITY -> emitIdentity(args)
                 IntrinsicType.GET_CONTINUATION -> emitGetContinuation()
                 IntrinsicType.INTEROP_MEMORY_COPY -> emitMemoryCopy(callSite, args)
-                IntrinsicType.RETURN_IF_SUSPEND,
+                IntrinsicType.RETURN_IF_SUSPENDED,
                 IntrinsicType.INTEROP_BITS_TO_FLOAT,
                 IntrinsicType.INTEROP_BITS_TO_DOUBLE,
                 IntrinsicType.INTEROP_SIGN_EXTEND,
@@ -246,6 +249,8 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
                 IntrinsicType.INTEROP_STATIC_C_FUNCTION,
                 IntrinsicType.INTEROP_FUNPTR_INVOKE,
                 IntrinsicType.INTEROP_CONVERT,
+                IntrinsicType.ENUM_VALUES,
+                IntrinsicType.ENUM_VALUE_OF,
                 IntrinsicType.WORKER_EXECUTE ->
                     reportNonLoweredIntrinsic(intrinsicType)
                 IntrinsicType.INIT_INSTANCE,
