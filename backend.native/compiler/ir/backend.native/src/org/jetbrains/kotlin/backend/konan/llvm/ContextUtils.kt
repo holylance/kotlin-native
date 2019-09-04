@@ -434,13 +434,18 @@ internal class Llvm(val context: Context, val llvmModule: LLVMModuleRef) {
     val leaveFrameFunction = importModelSpecificRtFunction("LeaveFrame")
     val lookupOpenMethodFunction = importRtFunction("LookupOpenMethod")
     val isInstanceFunction = importRtFunction("IsInstance")
-    val checkInstanceFunction = importRtFunction("CheckInstance")
+    val isInstanceOfClassFastFunction = importRtFunction("IsInstanceOfClassFast")
     val throwExceptionFunction = importRtFunction("ThrowException")
     val appendToInitalizersTail = importRtFunction("AppendToInitializersTail")
     val initRuntimeIfNeeded = importRtFunction("Kotlin_initRuntimeIfNeeded")
     val mutationCheck = importRtFunction("MutationCheck")
     val freezeSubgraph = importRtFunction("FreezeSubgraph")
     val checkMainThread = importRtFunction("CheckIsMainThread")
+
+    val kRefSharedHolderInitLocal = importRtFunction("KRefSharedHolder_initLocal")
+    val kRefSharedHolderInit = importRtFunction("KRefSharedHolder_init")
+    val kRefSharedHolderDispose = importRtFunction("KRefSharedHolder_dispose")
+    val kRefSharedHolderRef = importRtFunction("KRefSharedHolder_ref")
 
     val createKotlinObjCClass by lazy { importRtFunction("CreateKotlinObjCClass") }
     val getObjCKotlinTypeInfo by lazy { importRtFunction("GetObjCKotlinTypeInfo") }
