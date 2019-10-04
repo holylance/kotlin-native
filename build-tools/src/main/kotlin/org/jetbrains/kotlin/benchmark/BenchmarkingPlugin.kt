@@ -10,7 +10,7 @@ import org.gradle.util.ConfigureUtil
 import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTargetPreset
+import org.jetbrains.kotlin.gradle.plugin.mpp.AbstractKotlinNativeTargetPreset
 import org.jetbrains.kotlin.konan.target.HostManager
 import javax.inject.Inject
 import kotlin.reflect.KClass
@@ -53,11 +53,11 @@ internal val Project.jvmJson: String
 
 internal val Project.commonBenchmarkProperties: Map<String, Any>
     get() = mapOf(
-        "cpu" to System.getProperty("os.arch"),
-        "os" to System.getProperty("os.name"),
-        "jdkVersion" to System.getProperty("java.version"),
-        "jdkVendor" to System.getProperty("java.vendor"),
-        "kotlinVersion" to kotlinVersion
+            "cpu" to System.getProperty("os.arch"),
+            "os" to System.getProperty("os.name"),
+            "jdkVersion" to System.getProperty("java.version"),
+            "jdkVendor" to System.getProperty("java.vendor"),
+            "kotlinVersion" to kotlinVersion
     )
 
 open class BenchmarkExtension @Inject constructor(val project: Project) {
@@ -70,7 +70,7 @@ open class BenchmarkExtension @Inject constructor(val project: Project) {
     val dependencies: BenchmarkDependencies = BenchmarkDependencies()
 
     fun dependencies(action: BenchmarkDependencies.() -> Unit) =
-        dependencies.action()
+            dependencies.action()
 
     fun dependencies(action: Closure<*>) {
         ConfigureUtil.configure(action, dependencies)
@@ -83,7 +83,7 @@ open class BenchmarkExtension @Inject constructor(val project: Project) {
         fun project(path: String): Dependency = project.dependencies.project(mapOf("path" to path))
 
         fun project(path: String, configuration: String): Dependency =
-            project.dependencies.project(mapOf("path" to path, "configuration" to configuration))
+                project.dependencies.project(mapOf("path" to path, "configuration" to configuration))
 
         fun common(notation: Any) = sourceSets.commonMain.dependencies {
             implementation(notation)
@@ -107,10 +107,10 @@ abstract class BenchmarkingPlugin: Plugin<Project> {
 
     protected val mingwPath: String = System.getenv("MINGW64_DIR") ?: "c:/msys64/mingw64"
 
-    protected open fun Project.determinePreset(): KotlinNativeTargetPreset =
-        defaultHostPreset(this).also { preset ->
-            logger.quiet("$project has been configured for ${preset.name} platform.")
-        } as KotlinNativeTargetPreset
+    protected open fun Project.determinePreset(): AbstractKotlinNativeTargetPreset<*> =
+            defaultHostPreset(this).also { preset ->
+                logger.quiet("$project has been configured for ${preset.name} platform.")
+            } as AbstractKotlinNativeTargetPreset<*>
 
     protected abstract fun NamedDomainObjectContainer<KotlinSourceSet>.configureSources(project: Project)
 
@@ -158,7 +158,7 @@ abstract class BenchmarkingPlugin: Plugin<Project> {
         }
     }
 
-    protected open fun Project.configureNativeTarget(hostPreset: KotlinNativeTargetPreset) {
+    protected fun Project.configureNativeTarget(hostPreset: AbstractKotlinNativeTargetPreset<*>) {
         kotlin.targetFromPreset(hostPreset, NATIVE_TARGET_NAME) {
             compilations.getByName("main").kotlinOptions.freeCompilerArgs = project.compilerArgs
             compilations.getByName("main").enableEndorsedLibs = true
@@ -193,7 +193,7 @@ abstract class BenchmarkingPlugin: Plugin<Project> {
             nativeTarget.compilations.main.kotlinOptions.freeCompilerArgs.map { "\"$it\"" }
 
     protected open fun Project.collectCodeSize(applicationName: String) =
-        getCodeSizeBenchmark(applicationName, nativeExecutable)
+            getCodeSizeBenchmark(applicationName, nativeExecutable)
 
     protected open fun Project.configureKonanJsonTask(nativeTarget: KotlinNativeTarget): Task {
         return tasks.create("konanJsonReport") {
@@ -204,7 +204,7 @@ abstract class BenchmarkingPlugin: Plugin<Project> {
                 val applicationName = benchmark.applicationName
                 val benchContents = buildDir.resolve(nativeBenchResults).readText()
                 val nativeCompileTime = if (benchmark.compileTasks.isEmpty()) getNativeCompileTime(applicationName)
-                    else getNativeCompileTime(applicationName, benchmark.compileTasks)
+                else getNativeCompileTime(applicationName, benchmark.compileTasks)
 
                 val properties = commonBenchmarkProperties + mapOf(
                         "type" to "native",

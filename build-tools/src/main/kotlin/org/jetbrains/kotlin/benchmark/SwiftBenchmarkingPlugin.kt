@@ -7,7 +7,7 @@ import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.plugin.mpp.Framework
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTargetPreset
+import org.jetbrains.kotlin.gradle.plugin.mpp.AbstractKotlinNativeTargetPreset
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 import java.io.File
 import javax.inject.Inject
@@ -64,7 +64,7 @@ open class SwiftBenchmarkingPlugin : BenchmarkingPlugin() {
         }
     }
 
-    override fun Project.determinePreset(): KotlinNativeTargetPreset = kotlin.presets.macosX64 as KotlinNativeTargetPreset
+    override fun Project.determinePreset(): AbstractKotlinNativeTargetPreset<*> = kotlin.presets.macosX64 as AbstractKotlinNativeTargetPreset<*>
 
     override fun KotlinNativeTarget.configureNativeOutput(project: Project) {
         binaries.framework(nativeFrameworkName, listOf(RELEASE)) {
@@ -83,7 +83,7 @@ open class SwiftBenchmarkingPlugin : BenchmarkingPlugin() {
             task.dependsOn(framework.linkTaskName)
             task.doLast {
                 val frameworkParentDirPath = framework.outputDirectory.absolutePath
-                val options = listOf("-Xlinker", "-rpath", "-Xlinker", frameworkParentDirPath, "-F", frameworkParentDirPath)
+                val options = listOf("-O", "-wmo", "-Xlinker", "-rpath", "-Xlinker", frameworkParentDirPath, "-F", frameworkParentDirPath)
                 compileSwift(project, nativeTarget.konanTarget, benchmark.swiftSources, options,
                         Paths.get(buildDir.absolutePath, benchmark.applicationName), false)
             }
@@ -99,5 +99,9 @@ open class SwiftBenchmarkingPlugin : BenchmarkingPlugin() {
             )
 
     override fun Project.getCompilerFlags(nativeTarget: KotlinNativeTarget) =
-            listOf<String>()
+            if (benchmark.useCodeSize == CodeSizeEntity.FRAMEWORK) {
+                nativeTarget.compilations.main.kotlinOptions.freeCompilerArgs.map { "\"$it\"" }
+            } else {
+                listOf("-O", "-wmo")
+            }
 }
