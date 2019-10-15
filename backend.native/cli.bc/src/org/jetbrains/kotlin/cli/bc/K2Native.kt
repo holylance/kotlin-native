@@ -32,6 +32,9 @@ import org.jetbrains.kotlin.utils.KotlinPaths
 
 private class K2NativeCompilerPerformanceManager: CommonCompilerPerformanceManager("Kotlin to Native Compiler")
 class K2Native : CLICompiler<K2NativeCompilerArguments>() {
+
+    override fun MutableList<String>.addPlatformOptions(arguments: K2NativeCompilerArguments) {}
+
     override fun createMetadataVersion(versionArray: IntArray): BinaryVersion = KlibMetadataVersion(*versionArray)
 
     override val performanceManager:CommonCompilerPerformanceManager by lazy {
@@ -230,6 +233,12 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
                 doMain(K2Native(), args)
             }
         }
+        @JvmStatic fun mainNoExit(args: Array<String>) {
+            profile("Total compiler main()") {
+                if (CLITool.doMainNoExit(K2Native(), args) != ExitCode.OK)
+                    throw KonanCompilationException("Compilation finished with errors")
+            }
+        }
     }
 }
 
@@ -338,4 +347,4 @@ private fun parseLibrariesToCache(
 }
 
 fun main(args: Array<String>) = K2Native.main(args)
-
+fun mainNoExit(args: Array<String>) = K2Native.mainNoExit(args)
