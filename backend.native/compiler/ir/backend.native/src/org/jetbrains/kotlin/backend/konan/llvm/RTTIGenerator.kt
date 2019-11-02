@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.backend.konan.llvm
 
 import llvm.*
-import org.jetbrains.kotlin.backend.common.ir.simpleFunctions
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.descriptors.*
@@ -69,7 +68,7 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
     inner class MethodTableRecord(val nameSignature: LocalHash, methodEntryPoint: ConstPointer?) :
             Struct(runtime.methodTableRecordType, nameSignature, methodEntryPoint)
 
-    inner class InterfaceTableRecord(id: Int32, vtableSize: Int32, vtable: ConstPointer) :
+    inner class InterfaceTableRecord(id: Int32, vtableSize: Int32, vtable: ConstPointer?) :
             Struct(runtime.interfaceTableRecordType, id, vtableSize, vtable)
 
     private inner class TypeInfo(
@@ -311,7 +310,15 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
 
     fun interfaceTableRecords(irClass: IrClass): Pair<List<InterfaceTableRecord>, Int> {
         // The details are in ClassLayoutBuilder.
-        val interfaceLayouts = irClass.implementedInterfaces.map { context.getLayoutBuilder(it) }
+        val interfaces = irClass.implementedInterfaces
+        val (interfaceTableSkeleton, interfaceTableSize) = interfaceTableSkeleton(interfaces)
+
+        val interfaceTableEntries = interfaceTableRecords(irClass, interfaceTableSkeleton)
+        return Pair(interfaceTableEntries, interfaceTableSize)
+    }
+
+    private fun interfaceTableSkeleton(interfaces: List<IrClass>): Pair<Array<out ClassLayoutBuilder?>, Int> {
+        val interfaceLayouts = interfaces.map { context.getLayoutBuilder(it) }
         val interfaceColors = interfaceLayouts.map { it.hierarchyInfo.interfaceColor }
 
         // Find the optimal size. It must be a power of 2.
@@ -344,10 +351,18 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
                 it[interfaceLayout.hierarchyInfo.interfaceId % size] = interfaceLayout
         }
 
+        val interfaceTableSize = if (conservative) -size else (size - 1)
+        return Pair(interfaceTableSkeleton, interfaceTableSize)
+    }
+
+    private fun interfaceTableRecords(
+            irClass: IrClass,
+            interfaceTableSkeleton: Array<out ClassLayoutBuilder?>
+    ): List<InterfaceTableRecord> {
         val methodTableEntries = context.getLayoutBuilder(irClass).methodTableEntries
         val className = irClass.fqNameForIrSerialization
 
-        val interfaceTableEntries = interfaceTableSkeleton.map { iface ->
+        return interfaceTableSkeleton.map { iface ->
             val interfaceId = iface?.hierarchyInfo?.interfaceId ?: 0
             InterfaceTableRecord(
                     Int32(interfaceId),
@@ -371,7 +386,6 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
                     }
             )
         }
-        return Pair(interfaceTableEntries, if (conservative) -size else (size - 1))
     }
 
     private fun mapRuntimeType(type: LLVMTypeRef): Int =
@@ -452,9 +466,9 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
         val superClass = context.ir.symbols.any.owner
 
         assert(superClass.implementedInterfaces.isEmpty())
-        val interfaces = (listOf(irClass) + irClass.implementedInterfaces).map { it.typeInfoPtr }
+        val interfaces = (listOf(irClass) + irClass.implementedInterfaces)
         val interfacesPtr = staticData.placeGlobalConstArray("",
-                pointerType(runtime.typeInfoType), interfaces)
+                pointerType(runtime.typeInfoType), interfaces.map { it.typeInfoPtr })
 
         assert(superClass.declarations.all { it !is IrProperty && it !is IrField })
 
@@ -490,17 +504,22 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
         else
             ClassGlobalHierarchyInfo(-1, -1, 0, 0)
 
-        val interfaceTable = if (!context.ghaEnabled()) emptyList() else {
-            val layoutBuilder = context.getLayoutBuilder(irClass)
-            val vtableEntries = layoutBuilder.interfaceTableEntries.map { methodImpls[it]!!.bitcast(int8TypePtr) }
-            val interfaceVTable = staticData.placeGlobalArray("", kInt8Ptr, vtableEntries)
-            listOf(
-                    InterfaceTableRecord(
-                            Int32(layoutBuilder.hierarchyInfo.interfaceId),
-                            Int32(layoutBuilder.interfaceTableEntries.size),
-                            interfaceVTable.pointer.getElementPtr(0)
-                    )
-            )
+        // TODO: interfaces (e.g. FunctionN and Function) should have different colors.
+        val (interfaceTableSkeleton, interfaceTableSize) =
+                if (context.ghaEnabled()) interfaceTableSkeleton(interfaces) else Pair(emptyArray(), -1)
+
+        val interfaceTable = interfaceTableSkeleton.map { layoutBuilder ->
+            if (layoutBuilder == null) {
+                InterfaceTableRecord(Int32(0), Int32(0), null)
+            } else {
+                val vtableEntries = layoutBuilder.interfaceTableEntries.map { methodImpls[it]!!.bitcast(int8TypePtr) }
+                val interfaceVTable = staticData.placeGlobalArray("", kInt8Ptr, vtableEntries)
+                InterfaceTableRecord(
+                        Int32(layoutBuilder.hierarchyInfo.interfaceId),
+                        Int32(layoutBuilder.interfaceTableEntries.size),
+                        interfaceVTable.pointer.getElementPtr(0)
+                )
+            }
         }
         val interfaceTablePtr = staticData.placeGlobalConstArray("", runtime.interfaceTableRecordType, interfaceTable)
 
@@ -512,8 +531,7 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
                 objOffsets = objOffsetsPtr, objOffsetsCount = objOffsetsCount,
                 interfaces = interfacesPtr, interfacesCount = interfaces.size,
                 methods = methodsPtr, methodsCount = methods.size,
-                // 0 is a perfectly valid itable size (since 0 is in form of (2^k - 1).
-                interfaceTableSize = 0, interfaceTable = interfaceTablePtr,
+                interfaceTableSize = interfaceTableSize, interfaceTable = interfaceTablePtr,
                 packageName = reflectionInfo.packageName,
                 relativeName = reflectionInfo.relativeName,
                 flags = flagsFromClass(irClass) or (if (immutable) TF_IMMUTABLE else 0),
