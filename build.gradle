@@ -76,7 +76,7 @@ ext {
     kotlinNativeUtilsModule="org.jetbrains.kotlin:kotlin-native-utils:${kotlinVersion}"
     kotlinUtilKliMetadatabModule="org.jetbrains.kotlin:kotlin-util-klib-metadata:${kotlinVersion}"
 
-    konanVersionFull = KonanVersionGeneratedKt.getCurrentKonanVersion()
+    konanVersionFull = CompilerVersionGeneratedKt.getCurrentCompilerVersion()
     gradlePluginVersion = konanVersionFull
 }
 
@@ -101,6 +101,9 @@ allprojects {
         }
         maven {
             url kotlinCompilerRepo
+        }
+        maven {
+            url "https://dl.bintray.com/kotlin/kotlin-dev"
         }
     }
 
@@ -266,6 +269,11 @@ task detectJarCollision(type: CollisionDetector) {
     resolvingRules["META-INF/metadata.kotlin_module"] = "kotlin-compiler"
     resolvingRules["META-INF/type-system.kotlin_module"] = "kotlin-compiler"
     resolvingRules["META-INF/util.runtime.kotlin_module"] = "kotlin-compiler"
+
+    // These collisions are introduced by kotlinx-metadata-klib.
+    resolvingRules["META-INF/serialization.kotlin_module"] = "kotlin-compiler"
+    resolvingRules["META-INF/kotlin-util-klib-metadata.kotlin_module"] = "kotlin-compiler"
+
     resolvingRules["kotlin/annotation/annotation.kotlin_builtins"] = "kotlin-compiler"
     resolvingRules["kotlin/collections/collections.kotlin_builtins"] = "kotlin-compiler"
     resolvingRules["kotlin/coroutines/coroutines.kotlin_builtins"] = "kotlin-compiler"
@@ -275,7 +283,7 @@ task detectJarCollision(type: CollisionDetector) {
     resolvingRules["kotlin/reflect/reflect.kotlin_builtins"] = "kotlin-compiler"
     resolvingRules["META-INF/maven/com.google.protobuf/protobuf-java/pom.properties"] = "kotlin-compiler"
     resolvingRules["META-INF/maven/com.google.protobuf/protobuf-java/pom.xml"] = "kotlin-compiler"
-    librariesWithIgnoredClassCollisions.addAll(["kotlin-util-klib", "kotlin-util-io"])
+    librariesWithIgnoredClassCollisions.addAll(["kotlin-util-klib", "kotlin-util-io", "kotlinx-metadata-klib"])
     if (project.hasProperty('kotlinProjectPath')) {
         resolvingRulesWithRegexes[new Regex("META-INF/.+\\.kotlin_module")] = "kotlin-compiler"
         resolvingRules["META-INF/extensions/compiler.xml"] = "kotlin-compiler"
@@ -290,7 +298,7 @@ task detectJarCollision(type: CollisionDetector) {
                                                     "js.parser", "js.frontend", "js.translator", "js.dce", "metadata",
                                                     "metadata.jvm", "descriptors", "descriptors.jvm", "descriptors.runtime",
                                                     "deserialization", "util.runtime", "type-system", "cones", "resolve",
-                                                    "tree", "psi2fir", "fir2ir", "java", "kotlin-build-common"])
+                                                    "tree", "psi2fir", "fir2ir", "java", "kotlin-build-common", "lightTree"])
     }
 }
 
@@ -631,7 +639,7 @@ task uploadBundle {
     }
 }
 
-task teamcityKonanVersion {
+task teamcityCompilerVersion {
     doLast {
         println("##teamcity[setParameter name='kotlin.native.version.base' value='$konanVersion']")
         println("##teamcity[setParameter name='kotlin.native.version.full' value='$konanVersionFull']")
@@ -650,7 +658,7 @@ task clean {
 
 task pusher(type: KotlinBuildPusher){
     kotlinVersion = project.kotlinVersion
-    konanVersion = KonanVersionGeneratedKt.getCurrentKonanVersion()
+    konanVersion = CompilerVersionGeneratedKt.getCurrentCompilerVersion()
     buildServer = "buildserver.labs.intellij.net"
     compilerConfigurationId = System.getenv("TEAMCITY_COMPILER_ID") ?: "Kotlin_KotlinDev_Compiler"
     overrideConfigurationId = System.getenv("TEAMCITY_OVERRIDE_NATIVE_ID") ?: "Kotlin_KotlinDev_DeployMavenArtifacts_OverrideNative"
