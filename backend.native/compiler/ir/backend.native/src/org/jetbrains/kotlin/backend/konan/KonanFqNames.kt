@@ -25,6 +25,8 @@ object KonanFqNames {
     val threadLocal = FqName("kotlin.native.concurrent.ThreadLocal")
     val sharedImmutable = FqName("kotlin.native.concurrent.SharedImmutable")
     val frozen = FqName("kotlin.native.internal.Frozen")
+    val leakDetectorCandidate = FqName("kotlin.native.internal.LeakDetectorCandidate")
+    val canBePrecreated = FqName("kotlin.native.internal.CanBePrecreated")
     val typedIntrinsic = FqName("kotlin.native.internal.TypedIntrinsic")
     val objCMethod = FqName("kotlinx.cinterop.ObjCMethod")
 }
