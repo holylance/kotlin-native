@@ -535,7 +535,8 @@ internal fun KotlinStubs.generateCFunctionPointer(
             expression.endOffset,
             expression.type,
             fakeFunction.symbol,
-            0
+            typeArgumentsCount = 0,
+            reflectionTarget = null
     )
 }
 
@@ -1204,7 +1205,8 @@ private class ObjCBlockPointerValuePassing(
                 OBJC_BLOCK_FUNCTION_IMPL, IrClassSymbolImpl(classDescriptor),
                 Name.identifier(stubs.getUniqueKotlinFunctionReferenceClassName("BlockFunctionImpl")),
                 ClassKind.CLASS, Visibilities.PRIVATE, Modality.FINAL,
-                isCompanion = false, isInner = false, isData = false, isExternal = false, isInline = false, isExpect = false
+                isCompanion = false, isInner = false, isData = false, isExternal = false,
+                isInline = false, isExpect = false, isFun = false
         )
         classDescriptor.bind(irClass)
         irClass.createParameterDeclarations()
