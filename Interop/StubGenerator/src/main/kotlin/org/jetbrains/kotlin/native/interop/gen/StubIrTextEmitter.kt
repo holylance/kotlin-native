@@ -445,7 +445,7 @@ class StubIrTextEmitter(
     }
 
     private fun renderValueUsage(value: ValueStub): String = when (value) {
-        is StringConstantStub -> value.value
+        is StringConstantStub -> value.value.quoteAsKotlinLiteral()
         is IntegralConstantStub -> renderIntegralConstant(value)!!
         is DoubleConstantStub -> renderDoubleConstant(value)!!
         is GetConstructorParameter -> value.constructorParameterStub.name
@@ -497,7 +497,11 @@ class StubIrTextEmitter(
                     "ReplaceWith(${annotationStub.replaceWith.quoteAsKotlinLiteral()}), " +
                     "DeprecationLevel.ERROR)"
         is AnnotationStub.CEnumEntryAlias,
-        is AnnotationStub.CEnumVarTypeSize ->
+        is AnnotationStub.CEnumVarTypeSize,
+        is AnnotationStub.CStruct.MemberAt,
+        is AnnotationStub.CStruct.ArrayMemberAt,
+        is AnnotationStub.CStruct.BitField,
+        is AnnotationStub.CStruct.VarType ->
             error("${annotationStub.classifier.fqName} annotation is unsupported in textual mode")
     }
 
