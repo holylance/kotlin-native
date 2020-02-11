@@ -89,7 +89,11 @@ internal val arrayConstructorPhase = makeKonanModuleLoweringPhase(
 internal val inlinePhase = namedIrModulePhase(
         lower = object : SameTypeCompilerPhase<Context, IrModuleFragment> {
             override fun invoke(phaseConfig: PhaseConfig, phaserState: PhaserState<IrModuleFragment>, context: Context, input: IrModuleFragment): IrModuleFragment {
-                FunctionInlining(context).inline(input)
+                FunctionInlining(context).run {
+                    input.files.forEach {
+                        lower(it)
+                    }
+                }
                 return input
             }
         },
@@ -112,8 +116,12 @@ internal val lowerAfterInlinePhase = makeKonanModuleOpPhase(
 
 /* IrFile phases */
 
-internal val lateinitPhase = makeKonanFileLoweringPhase(
-        ::LateinitLowering,
+internal val lateinitPhase = makeKonanFileOpPhase(
+        { context, irFile ->
+            NullableFieldsForLateinitCreationLowering(context).lower(irFile)
+            NullableFieldsDeclarationLowering(context).lower(irFile)
+            LateinitUsageLowering(context).lower(irFile)
+        },
         name = "Lateinit",
         description = "Lateinit properties lowering",
         prerequisite = setOf(inlinePhase)
@@ -172,7 +180,8 @@ internal val tailrecPhase = makeKonanFileLoweringPhase(
 
 internal val defaultParameterExtentPhase = makeKonanFileOpPhase(
         { context, irFile ->
-            DefaultArgumentStubGenerator(context, skipInlineMethods = false).runOnFilePostfix(irFile)
+            DefaultArgumentStubGenerator(context, skipInlineMethods = false).lower(irFile)
+            DefaultParameterCleaner(context, replaceDefaultValuesWithStubs = true).lower(irFile)
             KonanDefaultParameterInjector(context).lower(irFile)
         },
         name = "DefaultParameterExtent",
@@ -266,8 +275,11 @@ internal val compileTimeEvaluatePhase = makeKonanFileLoweringPhase(
         prerequisite = setOf(varargPhase)
 )
 
-internal val coroutinesPhase = makeKonanFileLoweringPhase(
-        ::NativeSuspendFunctionsLowering,
+internal val coroutinesPhase = makeKonanFileOpPhase(
+        { context, irFile ->
+            NativeSuspendFunctionsLowering(context).lower(irFile)
+            RemoveSuspendLambdas().lower(irFile)
+        },
         name = "Coroutines",
         description = "Coroutines lowering",
         prerequisite = setOf(localFunctionsPhase, finallyBlocksPhase)
