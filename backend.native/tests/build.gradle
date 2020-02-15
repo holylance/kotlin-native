@@ -3374,6 +3374,11 @@ if (PlatformInfo.isAppleTarget(project)) {
         def includePath = file("interop/objc/kt34467").absolutePath
         it.compilerOpts "-fmodule-map-file=$moduleMap", "-I$includePath"
     }
+    createInterop("objcGh3343") {
+        it.defFile 'framework/gh3343/objclib.def'
+        it.headers "$projectDir/framework/gh3343/objclib.h"
+        it.linkerOpts "-L$buildDir"
+    }
 }
 
 createInterop("withSpaces") {
@@ -3721,7 +3726,12 @@ task library_mismatch(type: KonanDriverTest) {
         "warning: skipping $dir/1.2/empty.klib. The library versions don't match. Expected '5.6', found '1.2'\n" +
         "warning: skipping $dir/3.4/empty.klib. The target doesn't match. Expected '$currentTarget', found [$someOtherTarget]\n" +
         "Hello, versioned world!\n"
-    goldValue = isWindows() ? messages.replaceAll('\\/', '\\\\') : messages
+    goldValue = PlatformInfo.isWindows() ? messages.replaceAll('\\/', '\\\\') : messages
+    outputChecker = { out ->
+        goldValue.split("\n")
+                .collect { line -> out.contains(line) }
+                .every { it == true }
+    }
 }
 
 task library_ir_provider_mismatch(type: KonanDriverTest) {
@@ -3744,7 +3754,12 @@ task library_ir_provider_mismatch(type: KonanDriverTest) {
     def messages =
             "warning: skipping $dir/unsupported_ir_provider/empty.klib. The library requires unknown IR provider UNSUPPORTED.\n" +
                     "hello\n"
-    goldValue = isWindows() ? messages.replaceAll('\\/', '\\\\') : messages
+    goldValue = PlatformInfo.isWindows() ? messages.replaceAll('\\/', '\\\\') : messages
+    outputChecker = { out ->
+        goldValue.split("\n")
+                .collect { line -> out.contains(line) }
+                .every { it == true }
+    }
 }
 
 if (isAppleTarget(project)) {
@@ -3876,6 +3891,42 @@ if (isAppleTarget(project)) {
         }
         swiftSources = ['framework/multiple/multiple.swift']
     }
+
+    task testGh3343Framework(type: FrameworkTest) {
+        final String frameworkName = 'Gh3343'
+        testName = frameworkName
+        frameworkNames = [frameworkName]
+
+        def mainTask = it
+
+        konanArtifacts {
+            def lib = "objcGh3343"
+            def libTask = "compileKonan${lib.capitalize()}${target.name.capitalize()}"
+            UtilsKt.dependsOnDist(project, libTask)
+            UtilsKt.sameDependenciesAs(libTask, mainTask)
+            mainTask.dependsOn(libTask)
+
+            def lnOpts = (project.tasks.getByName(libTask)).linkerOpts
+
+            framework(frameworkName, targets: [ target ]) {
+                libraries {
+                    artifact lib
+                }
+                srcDir 'framework/gh3343'
+                baseDir "$testOutputFramework/$testName"
+
+                if (!useCustomDist) {
+                    dependsOn ":${target}CrossDistRuntime", ':commonDistRuntime', ':distCompiler'
+                }
+
+                linkerOpts lnOpts
+                extraOpts "-Xembed-bitcode-marker"
+                extraOpts project.globalTestArgs
+            }
+        }
+        swiftSources = ['framework/gh3343/uselib.swift']
+    }
+
 }
 
 /**
