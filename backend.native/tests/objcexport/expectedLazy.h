@@ -1109,6 +1109,13 @@ __attribute__((swift_name("SharedRefs.MutableData")))
 @property int32_t x __attribute__((swift_name("x")));
 @end;
 
+__attribute__((swift_name("TestRememberNewObject")))
+@protocol KtTestRememberNewObject
+@required
+- (id)getObject __attribute__((swift_name("getObject()")));
+- (void)waitForCleanup __attribute__((swift_name("waitForCleanup()")));
+@end;
+
 __attribute__((swift_name("ClassForTypeCheck")))
 @interface KtClassForTypeCheck : KtBase
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
@@ -1283,12 +1290,35 @@ __attribute__((swift_name("ValuesKt")))
 + (void)error __attribute__((swift_name("error()"))) __attribute__((unavailable("error")));
 + (void)warning __attribute__((swift_name("warning()"))) __attribute__((deprecated("warning")));
 + (void)gc __attribute__((swift_name("gc()")));
++ (void)testRememberNewObjectTest:(id<KtTestRememberNewObject>)test __attribute__((swift_name("testRememberNewObject(test:)")));
 + (BOOL)testClassTypeCheckX:(id)x __attribute__((swift_name("testClassTypeCheck(x:)")));
 + (BOOL)testInterfaceTypeCheckX:(id)x __attribute__((swift_name("testInterfaceTypeCheck(x:)")));
 + (int32_t)testAbstractInterfaceCallX:(id<KtIAbstractInterface>)x __attribute__((swift_name("testAbstractInterfaceCall(x:)")));
 + (int32_t)testAbstractInterfaceCall2X:(id<KtIAbstractInterface2>)x __attribute__((swift_name("testAbstractInterfaceCall2(x:)")));
 + (void)fooA:(KtKotlinAtomicReference<id> *)a __attribute__((swift_name("foo(a:)")));
 + (BOOL)testGH3825Gh3825:(id<KtGH3825>)gh3825 error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("testGH3825(gh3825:)")));
++ (NSDictionary<KtBoolean *, NSString *> *)mapBoolean2String __attribute__((swift_name("mapBoolean2String()")));
++ (NSDictionary<KtByte *, KtShort *> *)mapByte2Short __attribute__((swift_name("mapByte2Short()")));
++ (NSDictionary<KtShort *, KtByte *> *)mapShort2Byte __attribute__((swift_name("mapShort2Byte()")));
++ (NSDictionary<KtInt *, KtLong *> *)mapInt2Long __attribute__((swift_name("mapInt2Long()")));
++ (NSDictionary<KtLong *, KtLong *> *)mapLong2Long __attribute__((swift_name("mapLong2Long()")));
++ (NSDictionary<KtUByte *, KtBoolean *> *)mapUByte2Boolean __attribute__((swift_name("mapUByte2Boolean()")));
++ (NSDictionary<KtUShort *, KtByte *> *)mapUShort2Byte __attribute__((swift_name("mapUShort2Byte()")));
++ (NSDictionary<KtUInt *, KtLong *> *)mapUInt2Long __attribute__((swift_name("mapUInt2Long()")));
++ (NSDictionary<KtULong *, KtLong *> *)mapULong2Long __attribute__((swift_name("mapULong2Long()")));
++ (NSDictionary<KtFloat *, KtFloat *> *)mapFloat2Float __attribute__((swift_name("mapFloat2Float()")));
++ (NSDictionary<KtDouble *, NSString *> *)mapDouble2String __attribute__((swift_name("mapDouble2String()")));
++ (KtMutableDictionary<KtBoolean *, NSString *> *)mutBoolean2String __attribute__((swift_name("mutBoolean2String()")));
++ (KtMutableDictionary<KtByte *, KtShort *> *)mutByte2Short __attribute__((swift_name("mutByte2Short()")));
++ (KtMutableDictionary<KtShort *, KtByte *> *)mutShort2Byte __attribute__((swift_name("mutShort2Byte()")));
++ (KtMutableDictionary<KtInt *, KtLong *> *)mutInt2Long __attribute__((swift_name("mutInt2Long()")));
++ (KtMutableDictionary<KtLong *, KtLong *> *)mutLong2Long __attribute__((swift_name("mutLong2Long()")));
++ (KtMutableDictionary<KtUByte *, KtBoolean *> *)mutUByte2Boolean __attribute__((swift_name("mutUByte2Boolean()")));
++ (KtMutableDictionary<KtUShort *, KtByte *> *)mutUShort2Byte __attribute__((swift_name("mutUShort2Byte()")));
++ (KtMutableDictionary<KtUInt *, KtLong *> *)mutUInt2Long __attribute__((swift_name("mutUInt2Long()")));
++ (KtMutableDictionary<KtULong *, KtLong *> *)mutULong2Long __attribute__((swift_name("mutULong2Long()")));
++ (KtMutableDictionary<KtFloat *, KtFloat *> *)mutFloat2Float __attribute__((swift_name("mutFloat2Float()")));
++ (KtMutableDictionary<KtDouble *, NSString *> *)mutDouble2String __attribute__((swift_name("mutDouble2String()")));
 @property (class, readonly) double dbl __attribute__((swift_name("dbl")));
 @property (class, readonly) float flt __attribute__((swift_name("flt")));
 @property (class, readonly) int32_t integer __attribute__((swift_name("integer")));

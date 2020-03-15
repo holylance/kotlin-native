@@ -1029,6 +1029,22 @@ task enumIdentity(type: KonanLocalTest) {
     source = "runtime/workers/enum_identity.kt"
 }
 
+standaloneTest("leakWorker") {
+    disabled = project.globalTestArgs.contains('-opt') || (project.testTarget == 'wasm32') // Needs debug build and pthreads.
+    source = "runtime/workers/leak_worker.kt"
+    flags = ['-g']
+    expectedExitStatusChecker = { it != 0 }
+    outputChecker = { s -> s.contains("Unfinished workers detected, 1 workers leaked!") }
+}
+
+standaloneTest("leakMemoryWithWorkerTermination") {
+    disabled = project.globalTestArgs.contains('-opt') || (project.testTarget == 'wasm32') // Needs debug build and pthreads.
+    source = "runtime/workers/leak_memory_with_worker_termination.kt"
+    flags = ['-g']
+    expectedExitStatusChecker = { it != 0 }
+    outputChecker = { s -> s.contains("Memory leaks detected, 1 objects leaked!") }
+}
+
 task superFunCall(type: KonanLocalTest) {
     goldValue = "<fun:C><fun:C1>\n<fun:C><fun:C3>\n"
     source = "codegen/basics/superFunCall.kt"
@@ -2728,10 +2744,23 @@ standaloneTest("memory_only_gc") {
     source = "runtime/memory/only_gc.kt"
 }
 
+task memory_stable_ref_cross_thread_check(type: KonanLocalTest) {
+    disabled = project.testTarget == 'wasm32' // Needs workers.
+    source = "runtime/memory/stable_ref_cross_thread_check.kt"
+}
+
 standaloneTest("cycle_collector") {
     disabled = project.globalTestArgs.contains('-opt') || (project.testTarget == 'wasm32') // Needs debug build.
     flags = ['-g']
     source = "runtime/memory/cycle_collector.kt"
+}
+
+standaloneTest("leakMemory") {
+    disabled = project.globalTestArgs.contains('-opt') || (project.testTarget == 'wasm32') // Needs debug build.
+    source = "runtime/memory/leak_memory.kt"
+    flags = ['-g']
+    expectedExitStatusChecker = { it != 0 }
+    outputChecker = { s -> s.contains("Memory leaks detected, 1 objects leaked!") }
 }
 
 standaloneTest("mpp1") {
@@ -3369,6 +3398,14 @@ createInterop("cmangling2") {
     it.defFile 'interop/basics/mangling2.def'
 }
 
+createInterop("auxiliaryCppSources") {
+    // We need to provide empty def file to create correct `KonanInteropTask`.
+    it.defFile 'interop/auxiliary_sources/auxiliaryCppSources.def'
+    it.headers "$projectDir/interop/auxiliary_sources/name.h"
+    it.extraOpts "-Xcompile-source", "$projectDir/interop/auxiliary_sources/name.cpp"
+    it.extraOpts "-Xsource-compiler-option", "-std=c++17"
+}
+
 if (PlatformInfo.isAppleTarget(project)) {
     createInterop("objcSmoke") {
         it.defFile 'interop/objc/objcSmoke.def'
@@ -3536,6 +3573,12 @@ interopTest("interop_mangling2") {
     disabled = (project.testTarget == 'wasm32') // No interop for wasm yet.
     source = "interop/basics/mangling2.kt"
     interop = 'cmangling2'
+}
+
+interopTest("interop_auxiliarySources") {
+    disabled = (project.testTarget == 'wasm32') // No interop for wasm yet.
+    source = "interop/auxiliary_sources/main.kt"
+    interop = 'auxiliaryCppSources'
 }
 
 interopTest("interop_values") {
