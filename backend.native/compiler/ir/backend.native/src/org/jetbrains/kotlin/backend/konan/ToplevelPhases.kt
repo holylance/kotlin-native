@@ -209,7 +209,9 @@ internal val psiToIrPhase = konanUnitPhase(
                     moduleDescriptor, symbolTable,
                     config.configuration.languageVersionSettings
             )
-            val irProviderForCEnumsAndCStructs = IrProviderForCEnumAndCStructStubs(generatorContext, interopBuiltIns, symbols)
+            val irProviderForCEnumsAndCStructs = IrProviderForCEnumAndCStructStubs(
+                    generatorContext, interopBuiltIns, symbols, llvmModuleSpecification::containsModule
+            )
             // We need to run `buildAllEnumsAndStructsFrom` before `generateModuleFragment` because it adds references to symbolTable
             // that should be bound.
             modulesWithoutDCE
@@ -245,11 +247,9 @@ internal val psiToIrPhase = konanUnitPhase(
             if (this.stdlibModule in modulesWithoutDCE) {
                 functionIrClassFactory.buildAllClasses()
             }
-            modulesWithoutDCE
-                    .filter(ModuleDescriptor::isFromInteropLibrary)
-                    .forEach(irProviderForCEnumsAndCStructs::buildAllEnumsAndStructsFrom)
-
             module.acceptVoid(ManglerChecker(KonanManglerIr, Ir2DescriptorManglerAdapter(KonanManglerDesc)))
+
+            module.files += irProviderForCEnumsAndCStructs.outputFiles
 
             irModule = module
             irModules = deserializer.modules.filterValues { llvmModuleSpecification.containsModule(it) }
@@ -258,8 +258,6 @@ internal val psiToIrPhase = konanUnitPhase(
             functionIrClassFactory.module =
                     (listOf(irModule!!) + deserializer.modules.values)
                             .single { it.descriptor.isKonanStdlib() }
-
-            irProviderForCEnumsAndCStructs.module = module
         },
         name = "Psi2Ir",
         description = "Psi to IR conversion",
@@ -326,18 +324,19 @@ internal val allLoweringsPhase = namedIrModulePhase(
                 stripTypeAliasDeclarationsPhase then
                 lowerBeforeInlinePhase then
                 arrayConstructorPhase then
+                lateinitPhase then
+                sharedVariablesPhase then
+                extractLocalClassesFromInlineBodies then
                 inlinePhase then
                 provisionalFunctionExpressionPhase then
                 lowerAfterInlinePhase then
                 performByIrFile(
                         name = "IrLowerByFile",
                         description = "IR Lowering by file",
-                        lower = lateinitPhase then
-                                forLoopsPhase then
+                        lower = forLoopsPhase then
                                 stringConcatenationPhase then
                                 enumConstructorsPhase then
                                 initializersPhase then
-                                sharedVariablesPhase then
                                 localFunctionsPhase then
                                 tailrecPhase then
                                 defaultParameterExtentPhase then
