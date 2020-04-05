@@ -208,6 +208,7 @@ def update_external_tests() {
             include 'common/**'
             include 'test/**'
             exclude 'test/js/**'
+            include 'kotlin-test/**'
         }
     }
 }
@@ -4219,6 +4220,7 @@ KotlinNativeTestKt.createTest(project, 'stdlibTest', KonanGTest) { task ->
     task.useFilter = false
     task.testLogger = KonanTest.Logger.GTEST
     task.finalizedBy("resultsTask")
+    task.enabled = (project.testTarget != 'wasm32')  // Uses exceptions
 }
 
 /**
