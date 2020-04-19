@@ -242,6 +242,10 @@ task sanity {
         task.getDependsOn().every { !platformLibsTasks.contains(it) } &&
         task.name != "library_mismatch" // This test requires the wasm32 stdlib which is unavailable during a sanity run.
     })
+
+    dependsOn(tasksOf(FrameworkTest) { task ->
+        task.getDependsOn().every { !platformLibsTasks.contains(it) }
+    })
 }
 
 // Collect reports in one json.
@@ -3324,6 +3328,7 @@ linkTest("inline_sharedVar_linkTest") {
 }
 
 linkTest("inline_lateinitProperty_linkTest") {
+    disabled = (project.testTarget == 'wasm32') // Uses exceptions.
     goldValue = "OK\n"
     source = "codegen/inline/lateinitProperty_linkTest_main.kt"
     lib = "codegen/inline/lateinitProperty_linkTest_lib.kt"
@@ -3979,8 +3984,9 @@ if (isAppleTarget(project)) {
                     dependsOn ":${target.name}CrossDistRuntime", ':distCompiler'
                 }
 
+                dependsOn konanArtifacts[libraryName].getByTarget(target.name)
                 libraries {
-                    artifact libraryName
+                    file konanArtifacts[libraryName].getArtifactByTarget(target.name)
                 }
 
                 extraOpts "-Xembed-bitcode-marker"
@@ -4028,8 +4034,9 @@ if (isAppleTarget(project)) {
                     dependsOn ":${target.name}CrossDistRuntime", ':distCompiler'
                 }
 
+                dependsOn konanArtifacts[libraryName].getByTarget(target.name)
                 libraries {
-                    artifact libraryName
+                    file konanArtifacts[libraryName].getArtifactByTarget(target.name)
                 }
 
                 extraOpts "-Xembed-bitcode-marker"
