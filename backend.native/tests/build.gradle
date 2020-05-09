@@ -3469,6 +3469,14 @@ createInterop("cmangling_keywords2") {
     it.defFile 'interop/basics/mangling_keywords2.def'
 }
 
+createInterop("cunion") {
+    it.defFile 'interop/basics/cunion.def'
+}
+
+createInterop("carrayPointers") {
+    it.defFile 'interop/basics/carrayPointers.def'
+}
+
 createInterop("auxiliaryCppSources") {
     // We need to provide empty def file to create correct `KonanInteropTask`.
     it.defFile 'interop/auxiliary_sources/auxiliaryCppSources.def'
@@ -3716,6 +3724,18 @@ interopTest("interop_withSpaces") {
     doLast {
         assert file("${buildDir}/cutom map.map").exists()
     }
+}
+
+interopTest("interop_union") {
+    disabled = (project.testTarget == 'wasm32') // No interop for wasm yet.
+    interop = 'cunion'
+    source = "interop/basics/union.kt"
+}
+
+interopTest("interop_array_pointers") {
+    disabled = (project.testTarget == 'wasm32') // No interop for wasm yet.
+    interop = 'carrayPointers'
+    source = "interop/basics/arrayPointers.kt"
 }
 
 task interop_convert(type: KonanLocalTest) {
