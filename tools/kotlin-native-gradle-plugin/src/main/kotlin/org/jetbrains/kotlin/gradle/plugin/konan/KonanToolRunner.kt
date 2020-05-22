@@ -30,7 +30,6 @@ internal interface KonanToolRunner: Named {
     val classpath: FileCollection
     val jvmArgs: List<String>
     val environment: Map<String, Any>
-    val additionalSystemProperties: Map<String, String>
 
     fun run(args: List<String>)
     fun run(vararg args: String) = run(args.toList())
@@ -70,11 +69,6 @@ internal abstract class KonanCliRunner(
         addAll(project.jvmArgs)
     }
 
-    override val additionalSystemProperties = mutableMapOf(
-            "konan.home" to konanHome,
-            "java.library.path" to "$konanHome/konan/nativelib"
-    )
-
     override val environment = mutableMapOf("LIBCLANG_DISABLE_CRASH_RECOVERY" to "1")
 
     private fun String.escapeQuotes() = replace("\"", "\\\"")
@@ -107,7 +101,6 @@ internal abstract class KonanCliRunner(
                     .escapeQuotesForWindows()
                     .toMap()
             )
-            spec.systemProperties(additionalSystemProperties)
             spec.args(listOf(toolName) + transformArgs(args))
             blacklistEnvironment.forEach { spec.environment.remove(it) }
             spec.environment(environment)

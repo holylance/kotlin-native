@@ -204,6 +204,8 @@ class NamedNativeInteropConfig implements Named {
                     new File(project.findProject(":Interop:Indexer").buildDir, "nativelibs"),
                     new File(project.findProject(":Interop:Runtime").buildDir, "nativelibs")
             ).asPath
+            // Set the konan.home property because we run the cinterop tool not from a distribution jar
+            // so it will not be able to determine this path by itself.
             systemProperties "konan.home": project.rootProject.projectDir
             environment "LIBCLANG_DISABLE_CRASH_RECOVERY": "1"
 
@@ -306,16 +308,6 @@ class NativeInteropPlugin implements Plugin<Project> {
         prj.dependencies {
             interopStubGenerator project(path: ":Interop:StubGenerator")
             interopStubGenerator project(path: ":endorsedLibraries:kotlinx.cli", configuration: "jvmRuntimeElements")
-        }
-
-        // FIXME: choose tasks more wisely
-        prj.tasks.withType(JavaExec) {
-            if (!name.endsWith("InteropStubs")) {
-                systemProperties "java.library.path": prj.files(
-                        nativeLibsDir,
-                        runtimeNativeLibsDir
-                ).asPath
-            }
         }
     }
 }
